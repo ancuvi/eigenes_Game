@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a1a">
+    <title>Ascension of the Slime</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Map Toggle Button -->
+        <button id="map-toggle">Map</button>
+        <button id="stats-toggle">Stats</button>
+
+        <!-- Stats Panel -->
+        <div id="stats-panel">
+            <div class="stat-item">LVL: <span id="stat-level">1</span></div>
+            <div class="stat-item">HP: <span id="stat-hp">100</span>/<span id="stat-max-hp">100</span></div>
+            <div class="stat-item">GOLD: <span id="stat-gold">0</span></div>
+        </div>
+
+        <!-- Spielbereich (Canvas + Overlays) -->
+        <div id="game-area">
+            <!-- Width/Height wird via JS gesetzt -->
+            <canvas id="gameCanvas"></canvas>
+            
+            <!-- Navigation Overlays (klickbare Bereiche/Pfeile) -->
+            <div id="nav-overlay">
+                <div class="nav-arrow" id="nav-up" data-dir="up">⬆️</div>
+                <div class="nav-arrow" id="nav-down" data-dir="down">⬇️</div>
+                <div class="nav-arrow" id="nav-left" data-dir="left">⬅️</div>
+                <div class="nav-arrow" id="nav-right" data-dir="right">➡️</div>
+            </div>
+        </div>
+
+        <!-- Combat Log (optional, vielleicht kleiner) -->
+        <div id="combat-log">
+            <div>Willkommen in der Pixel-Welt!</div>
+        </div>
+
+        <!-- Map Overlay -->
+        <div id="map-overlay">
+            <div id="map-dialog">
+                <div id="map-header">
+                    <span>Weltkarte</span>
+                    <button id="map-close">×</button>
+                </div>
+                <canvas id="map-canvas" width="420" height="420"></canvas>
+                <div id="map-legend">
+                    <span class="legend visited"></span> Erkundet
+                    <span class="legend current"></span> Aktuelle Position
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Overlay -->
+        <div id="stats-overlay">
+            <div id="stats-dialog">
+                <div id="stats-header">
+                    <span>Spieler-Stats</span>
+                    <button id="stats-close">×</button>
+                </div>
+                <div id="stats-content">
+                    <div><strong>Level:</strong> <span id="stat-level-overlay">1</span></div>
+                    <div><strong>HP:</strong> <span id="stat-hp-overlay">100</span>/<span id="stat-maxhp-overlay">100</span></div>
+                    <div><strong>Damage:</strong> <span id="stat-dmg-overlay">10</span></div>
+                    <div><strong>Attack Speed:</strong> <span id="stat-as-overlay">1.0/s</span></div>
+                    <div><strong>Move Speed:</strong> <span id="stat-ms-overlay">200</span></div>
+                    <div><strong>Gold:</strong> <span id="stat-gold-overlay">0</span></div>
+                    <div><strong>EXP:</strong> <span id="stat-exp-overlay">0</span>/100</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
