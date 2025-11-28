@@ -167,12 +167,17 @@ export class Player {
     }
 
     reset() {
-        this.level = 1;
-        this.maxHp = 100;
+        // Stats behalten! (Progression)
+        // this.level = 1;
+        // this.maxHp = 100;
+        // this.damage = 10;
+        // this.gold = 0;
+        // this.exp = 0;
+        
+        // HP vollheilen
         this.hp = this.maxHp;
-        this.damage = 10;
-        this.gold = 0;
-        this.exp = 0;
+        
+        // States reset
         this.isMoving = false;
         this.interactionTarget = null;
         this.attackCooldown = 0;

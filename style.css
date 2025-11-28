@@ -32,6 +32,46 @@ canvas {
     background-color: #3b3b3b;
 }
 
+/* Start Screen */
+#start-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end; /* Button unten */
+    align-items: center;
+    z-index: 100;
+    padding-bottom: 20%; 
+    pointer-events: none; /* Klicks gehen durch, Button braucht auto */
+}
+
+#start-screen.hidden {
+    display: none;
+}
+
+#start-btn {
+    pointer-events: auto;
+    padding: 20px 40px;
+    font-size: 2rem;
+    background: #4caf50;
+    color: white;
+    border: 2px solid #fff;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    transition: transform 0.2s, background 0.2s;
+    font-family: inherit;
+    font-weight: bold;
+}
+
+#start-btn:hover {
+    transform: scale(1.05);
+    background: #45a049;
+}
+
 /* Stats als Overlay oben */
 #stats-panel {
     position: absolute;
