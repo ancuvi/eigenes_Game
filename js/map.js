@@ -79,11 +79,14 @@ export class GameMap {
     }
 
     pickEnemyCount() {
-        // Gewichtete Wahrscheinlichkeiten: 1 Gegner 60%, 2 Gegner 30%, 3 Gegner 10%
+        // Gewichtete Wahrscheinlichkeiten für 1-5 Gegner, Bias auf 3
+        // 1:10%, 2:20%, 3:40%, 4:20%, 5:10%
         const roll = Math.random();
-        if (roll < 0.6) return 1;
-        if (roll < 0.9) return 2;
-        return 3;
+        if (roll < 0.10) return 1;
+        if (roll < 0.30) return 2;
+        if (roll < 0.70) return 3;
+        if (roll < 0.90) return 4;
+        return 5;
     }
 
     switchRoom(direction) {
