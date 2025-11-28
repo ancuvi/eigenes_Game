@@ -38,7 +38,7 @@ export class GameMap {
                 enemies.push(boss);
                 UI.log('Ein mächtiger Boss erscheint!', '#ff8800');
             } else {
-                // Immer Gegner spawnen, auch bei 0,0
+                // Immer kleine Schleime (fix Level 1)
                 const enemyCount = this.pickEnemyCount();
                 UI.log(`Es erscheinen ${enemyCount} Gegner im Gebiet.`);
                 
@@ -54,10 +54,7 @@ export class GameMap {
                     const ex = randomNumber(paddingX, safeW - paddingX - 40);
                     const ey = randomNumber(paddingY, safeH - paddingY - 40); 
                     
-                    const distance = Math.abs(gx) + Math.abs(gy);
-                    const enemyLevel = Math.max(1, this.player.level + Math.floor(distance / 2));
-                    
-                    const enemy = new Enemy(enemyLevel, ex, ey);
+                    const enemy = new Enemy(1, ex, ey);
                     enemies.push(enemy);
                     console.log(`Spawned Enemy at ${ex}, ${ey}`);
                 }

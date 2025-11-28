@@ -212,11 +212,6 @@ export class Player {
         this.maxHp += 25;
         this.attackPower += 3;
 
-        // Regeneration alle 2 Level +1
-        if (this.level % 2 === 0) {
-            this.hpRegen += 1;
-        }
-
         // Meilensteine
         if (this.level === 5) {
             this.maxHp += 20;
@@ -229,6 +224,12 @@ export class Player {
             this.attackRate = 1.2;
             this.updateAttackCooldown();
             UI.log('MEILENSTEIN: Level 10 erreicht! Angriffsgeschwindigkeit erhöht!', '#00ffcc');
+        }
+
+        // Regeneration alle 5 Level leicht erhöhen
+        if (this.level % 5 === 0) {
+            this.hpRegen += 1;
+            UI.log(`Deine Regeneration steigt auf ${this.hpRegen}/s.`, '#00ffcc');
         }
 
         // Voll heilen
