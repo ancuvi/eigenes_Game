@@ -7,27 +7,59 @@ export class Enemy {
      * @param {number} playerLevel 
      * @param {number} x Position X
      * @param {number} y Position Y
+     * @param {boolean} isBoss Boss-Flag
      */
-    constructor(playerLevel, x, y) {
+    constructor(playerLevel, x, y, isBoss = false) {
         // Basis-Werte
         const scaleFactor = 1.2;
-        this.level = playerLevel;
-        this.maxHp = Math.floor(50 * Math.pow(scaleFactor, playerLevel - 1)) + randomNumber(0, 10 * playerLevel);
-        this.hp = this.maxHp;
-        this.damage = Math.floor(5 * Math.pow(scaleFactor, playerLevel - 1)) + randomNumber(0, 2 * playerLevel);
-        this.goldReward = Math.floor(10 * Math.pow(1.1, playerLevel - 1));
-        
-        this.name = this.generateName(playerLevel);
+        const isStarterSlime = !isBoss && playerLevel <= 1;
+
+        if (isBoss) {
+            this.level = 5;
+            this.maxHp = 400;
+            this.hp = this.maxHp;
+            this.damage = 25;
+            this.attackSpeed = 0.5; // alle ~2s
+            this.goldReward = 500;
+            this.expReward = 200;
+            this.name = 'Eisen-Golem (Boss)';
+            this.defense = 4;
+        } else if (isStarterSlime) {
+            // Vorgaben für kleinen Schleim
+            this.level = 1;
+            this.maxHp = 30;
+            this.hp = this.maxHp;
+            this.damage = 8;
+            this.attackSpeed = 0.8; // ~1.25s pro Angriff
+            this.goldReward = 15;
+            this.expReward = 10;
+            this.name = 'Kleiner Schleim';
+            this.defense = 0;
+        } else {
+            this.level = playerLevel;
+            this.maxHp = Math.floor(50 * Math.pow(scaleFactor, playerLevel - 1)) + randomNumber(0, 10 * playerLevel);
+            this.hp = this.maxHp;
+            this.damage = Math.floor(5 * Math.pow(scaleFactor, playerLevel - 1)) + randomNumber(0, 2 * playerLevel);
+            this.goldReward = Math.floor(10 * Math.pow(1.1, playerLevel - 1));
+            this.expReward = 20 + playerLevel * 5;
+            this.name = this.generateName(playerLevel);
+            this.attackSpeed = 0.5; // Default langsam
+            this.defense = 0;
+        }
 
         // Position & Größe
         this.x = x;
         this.y = y;
-        this.width = 40;
-        this.height = 40;
+        if (isBoss) {
+            this.width = 70;
+            this.height = 70;
+        } else {
+            this.width = 40;
+            this.height = 40;
+        }
 
         // Kampf
         this.attackCooldown = 0;
-        this.attackSpeed = 0.5; // Angriffe pro Sekunde (langsamer als Player)
         this.attackRange = 60;
         this.speed = 140;
         this.aggroRange = 200; // Bereich in dem der Gegner den Spieler bemerkt
@@ -99,13 +131,9 @@ export class Enemy {
         this.telegraphTimer = 0;
     }
 
-    attack(player) {
-        this.performAttack(player);
-        // console.log(`${this.name} hits Player for ${this.damage}`);
-    }
-
     takeDamage(amount, attacker = null) {
-        this.hp -= amount;
+        const effective = Math.max(0, amount - (this.defense || 0));
+        this.hp -= effective;
         if (this.hp < 0) this.hp = 0;
         // Aggro setzen, wenn angegriffen
         if (attacker && !this.isDead()) {

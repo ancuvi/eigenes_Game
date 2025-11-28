@@ -28,7 +28,7 @@ export class Renderer {
             enemies.forEach(enemy => {
                 this.drawEntity(enemy, '#e53935'); // Kräftiges Rot
                 this.drawHealthBar(enemy);
-                this.drawLabel(enemy, `Lvl ${enemy.level}`);
+                this.drawLabel(enemy, `${enemy.name} (Lvl ${enemy.level})`);
                 if (enemy.telegraphTimer > 0) {
                     this.drawTelegraph(enemy);
                 }
@@ -116,7 +116,8 @@ export class Renderer {
         this.ctx.fillStyle = '#fff';
         this.ctx.font = '12px monospace';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText(text, entity.x + entity.width / 2, entity.y - 15);
+        // Über der Lebensanzeige platzieren
+        this.ctx.fillText(text, entity.x + entity.width / 2, entity.y - 18);
         this.ctx.textAlign = 'start';
     }
 

@@ -72,13 +72,57 @@
                     <button id="stats-close">×</button>
                 </div>
                 <div id="stats-content">
-                    <div><strong>Level:</strong> <span id="stat-level-overlay">1</span></div>
-                    <div><strong>HP:</strong> <span id="stat-hp-overlay">100</span>/<span id="stat-maxhp-overlay">100</span></div>
-                    <div><strong>Damage:</strong> <span id="stat-dmg-overlay">10</span></div>
-                    <div><strong>Attack Speed:</strong> <span id="stat-as-overlay">1.0/s</span></div>
-                    <div><strong>Move Speed:</strong> <span id="stat-ms-overlay">200</span></div>
-                    <div><strong>Gold:</strong> <span id="stat-gold-overlay">0</span></div>
-                    <div><strong>EXP:</strong> <span id="stat-exp-overlay">0</span>/100</div>
+                    <div class="stats-section">
+                        <div class="section-title">Allgemein</div>
+                        <div class="stat-row"><span>Level</span><span id="stat-level-overlay">1</span></div>
+                        <div class="stat-row"><span>HP</span><span><span id="stat-hp-overlay">100</span>/<span id="stat-maxhp-overlay">100</span></span></div>
+                        <div class="stat-row"><span>Regen</span><span id="stat-regen-overlay">1/s</span></div>
+                        <div class="stat-row"><span>Gold</span><span id="stat-gold-overlay">0</span></div>
+                        <div class="stat-row"><span>EXP</span><span><span id="stat-exp-overlay">0</span>/<span id="stat-exp-max-overlay">100</span></span></div>
+                        <div class="stat-row"><span>Move Speed</span><span id="stat-ms-overlay">200</span></div>
+                    </div>
+
+                    <div class="stats-section">
+                        <div class="section-title">Offensive</div>
+                        <div class="stat-row"><span>Angriff</span><span id="stat-attack">10</span></div>
+                        <div class="stat-row"><span>Angriffsrate</span><span id="stat-attackrate">1/s</span></div>
+                        <div class="stat-row"><span>Angriffs-CD</span><span id="stat-attackcd">1000 ms</span></div>
+                        <div class="stat-row"><span>Krit. Chance</span><span id="stat-crit-chance">5%</span></div>
+                        <div class="stat-row"><span>Krit. Multiplikator</span><span id="stat-crit-mult">150%</span></div>
+                        <div class="stat-row"><span>Angriffsreichweite</span><span id="stat-range">60</span></div>
+                        <div class="stat-row"><span>Reichw. Schadensmult</span><span id="stat-range-mult">0%</span></div>
+                        <div class="stat-row"><span>Verlangsamungschance</span><span id="stat-slow-chance">0%</span></div>
+                        <div class="stat-row"><span>Verlangsamungsstärke</span><span id="stat-slow-strength">0%</span></div>
+                        <div class="stat-row"><span>Trefferrate</span><span id="stat-hit-rate">0%</span></div>
+                        <div class="stat-row"><span>Doppelangriffchance</span><span id="stat-double-chance">0%</span></div>
+                        <div class="stat-row"><span>Doppelangriff-Schaden</span><span id="stat-double-mult">0%</span></div>
+                        <div class="stat-row"><span>Mehrfach-Angriffchance</span><span id="stat-multistrike-chance">0%</span></div>
+                        <div class="stat-row"><span>Mehrfachziel-Anzahl</span><span id="stat-multistrike-targets">0</span></div>
+                        <div class="stat-row"><span>Spritzer-Chance</span><span id="stat-splash-chance">0%</span></div>
+                        <div class="stat-row"><span>Spritzer-Schaden</span><span id="stat-splash-mult">0%</span></div>
+                        <div class="stat-row"><span>Spritzer-Ziele</span><span id="stat-splash-targets">0</span></div>
+                        <div class="stat-row"><span>Betäubungschance</span><span id="stat-stun-chance">0%</span></div>
+                        <div class="stat-row"><span>Betäubungszeit</span><span id="stat-stun-duration">0s</span></div>
+                        <div class="stat-row"><span>Rückstoßchance</span><span id="stat-knockback-chance">0%</span></div>
+                        <div class="stat-row"><span>Tödlicher Treffer</span><span id="stat-lethal">0%</span></div>
+                        <div class="stat-row"><span>Fähigkeiten-Kritchance</span><span id="stat-ability-crit">0%</span></div>
+                        <div class="stat-row"><span>Fähigkeiten-Kritmult</span><span id="stat-ability-crit-mult">0%</span></div>
+                        <div class="stat-row"><span>Schwere Wunde</span><span id="stat-heavy-wound">0%</span></div>
+                    </div>
+
+                    <div class="stats-section">
+                        <div class="section-title">Defensive</div>
+                        <div class="stat-row"><span>Schadensresistenz</span><span id="stat-dmg-resist">0%</span></div>
+                        <div class="stat-row"><span>Ausweichchance</span><span id="stat-dodge">0%</span></div>
+                        <div class="stat-row"><span>Schadensrückgabe</span><span id="stat-dmg-return">0%</span></div>
+                        <div class="stat-row"><span>Schild-HP</span><span id="stat-shield-hp">0</span></div>
+                        <div class="stat-row"><span>Schild-CD</span><span id="stat-shield-cd">0s</span></div>
+                        <div class="stat-row"><span>Statusresistenz</span><span id="stat-status-resist">0%</span></div>
+                        <div class="stat-row"><span>Lebensraub</span><span id="stat-lifesteal">0%</span></div>
+                        <div class="stat-row"><span>Kritischer Widerstand</span><span id="stat-crit-resist">0</span></div>
+                        <div class="stat-row"><span>Zusatzzschadens-Widerstand</span><span id="stat-additional-resist">0%</span></div>
+                        <div class="stat-row"><span>Schild-Schadensreduktion</span><span id="stat-shield-dmg-reduction">0%</span></div>
+                    </div>
                 </div>
             </div>
         </div>

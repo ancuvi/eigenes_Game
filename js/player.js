@@ -8,9 +8,47 @@ export class Player {
         this.level = 1;
         this.maxHp = 100;
         this.hp = this.maxHp;
-        this.damage = 10;
+        this.hpRegen = 1; // pro Sekunde
+        this.attackPower = 10;
+        this.attackRate = 1; // Angriffe pro Sekunde
+        this.attackCooldownMs = 1000 / this.attackRate; // ms
+        this.critChance = 0.05;
+        this.critMultiplier = 1.5;
         this.gold = 0;
         this.exp = 0;
+
+        // Offensive Zusatzwerte (vorerst 0)
+        this.range = 60;
+        this.rangeDamageMultiplier = 0;
+        this.slowChance = 0;
+        this.slowStrength = 0;
+        this.hitRate = 0;
+        this.doubleStrikeChance = 0;
+        this.doubleStrikeDamageMultiplier = 0;
+        this.multiStrikeChance = 0;
+        this.multiStrikeTargets = 0;
+        this.splashChance = 0;
+        this.splashDamageMultiplier = 0;
+        this.splashTargets = 0;
+        this.stunChance = 0;
+        this.stunDuration = 0;
+        this.knockbackChance = 0;
+        this.lethalStrike = 0;
+        this.abilityCritChance = 0;
+        this.abilityCritMultiplier = 0;
+        this.heavyWound = 0;
+
+        // Defensive Zusatzwerte (vorerst 0)
+        this.damageResistance = 0;
+        this.dodgeChance = 0;
+        this.damageReturnMultiplier = 0;
+        this.shieldHp = 0;
+        this.shieldCooldown = 0;
+        this.statusResistance = 0;
+        this.lifeSteal = 0;
+        this.critResistance = 0;
+        this.additionalDamageResistance = 0;
+        this.shieldDamageReduction = 0;
 
         // Position & Größe
         this.width = 40;
@@ -30,9 +68,12 @@ export class Player {
 
         // Interaktion
         this.interactionTarget = null; // Enemy oder Resource
-        this.interactionRange = 60; // Pixel
-        this.attackCooldown = 0;
-        this.attackSpeed = 1.0; // Angriffe pro Sekunde
+        this.interactionRange = this.range; // Pixel
+        this.attackCooldownTimer = 0;
+    }
+
+    updateAttackCooldown() {
+        this.attackCooldownMs = 1000 / this.attackRate;
     }
 
     setTarget(x, y, targetEntity = null) {
@@ -61,8 +102,13 @@ export class Player {
 
     update(dt) {
         // Cooldown reduzieren
-        if (this.attackCooldown > 0) {
-            this.attackCooldown -= dt;
+        if (this.attackCooldownTimer > 0) {
+            this.attackCooldownTimer -= dt;
+        }
+
+        // Regeneration
+        if (this.hp < this.maxHp) {
+            this.hp = Math.min(this.maxHp, this.hp + this.hpRegen * dt);
         }
 
         // Bewegung
@@ -103,16 +149,20 @@ export class Player {
     interact(target) {
         if (target.constructor.name === 'Enemy') {
             // Kampf
-            if (this.attackCooldown <= 0) {
+            if (this.attackCooldownTimer <= 0) {
                 this.attack(target);
-                this.attackCooldown = 1.0 / this.attackSpeed;
+                this.attackCooldownTimer = this.attackCooldownMs / 1000;
             }
         }
     }
 
     attack(enemy) {
-        // Hier simpler Angriff, UI Logs können später über Events gefeuert werden
-        let dmg = this.damage;
+        // Krit berechnen
+        let dmg = this.attackPower;
+        const roll = Math.random();
+        if (roll < this.critChance) {
+            dmg *= this.critMultiplier;
+        }
         if (this.dashBonusReady) {
             dmg *= 2;
             this.dashBonusReady = false;
@@ -148,18 +198,46 @@ export class Player {
 
     gainExp(amount) {
         this.exp += amount;
-        if (this.exp >= 100) {
+        let needed = this.getNextLevelExp(this.level);
+        while (this.exp >= needed) {
+            this.exp -= needed;
             this.levelUp();
+            needed = this.getNextLevelExp(this.level);
         }
     }
 
     levelUp() {
         this.level++;
-        this.exp = 0;
-        this.maxHp += 20;
-        this.damage += 2;
+        // Standard-Erhöhungen
+        this.maxHp += 25;
+        this.attackPower += 3;
+
+        // Regeneration alle 2 Level +1
+        if (this.level % 2 === 0) {
+            this.hpRegen += 1;
+        }
+
+        // Meilensteine
+        if (this.level === 5) {
+            this.maxHp += 20;
+            this.attackPower += 3;
+            this.critChance = 0.10;
+            UI.log('MEILENSTEIN: Level 5 erreicht! Crit erhöht!', '#00ffcc');
+        }
+
+        if (this.level === 10) {
+            this.attackRate = 1.2;
+            this.updateAttackCooldown();
+            UI.log('MEILENSTEIN: Level 10 erreicht! Angriffsgeschwindigkeit erhöht!', '#00ffcc');
+        }
+
+        // Voll heilen
         this.hp = this.maxHp;
         UI.log(`LEVEL UP! Du bist jetzt Level ${this.level}!`, '#00ffff');
+    }
+
+    getNextLevelExp(level) {
+        return Math.floor(100 * Math.pow(1.5, level - 1));
     }
 
     isDead() {
@@ -180,7 +258,7 @@ export class Player {
         // States reset
         this.isMoving = false;
         this.interactionTarget = null;
-        this.attackCooldown = 0;
+        this.attackCooldownTimer = 0;
         this.isDashing = false;
         this.dashBonusReady = false;
     }

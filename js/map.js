@@ -22,32 +22,45 @@ export class GameMap {
 
         if (!this.grid[key]) {
             const enemies = [];
-            
-            // Immer Gegner spawnen, auch bei 0,0
-            const enemyCount = this.pickEnemyCount();
-            UI.log(`Es erscheinen ${enemyCount} Gegner im Gebiet.`);
-            
             const w = this.canvas.width;
             const h = this.canvas.height;
 
-            for (let i = 0; i < enemyCount; i++) {
-                // Sicherstellen, dass Koordinaten im sichtbaren Bereich sind
-                const paddingX = 100;
-                const paddingY = 150; // Mehr Platz oben/unten für UI
-                
-                // Fallback falls Canvas zu klein (z.B. Test-Environment)
-                const safeW = Math.max(w, 400);
-                const safeH = Math.max(h, 400);
+            const spawnBoss = (gx !== 0 || gy !== 0) && Math.random() < 0.15;
 
-                const ex = randomNumber(paddingX, safeW - paddingX - 40);
-                const ey = randomNumber(paddingY, safeH - paddingY - 40); 
+            if (spawnBoss) {
+                const paddingX = 120;
+                const paddingY = 170;
+                const safeW = Math.max(w, 500);
+                const safeH = Math.max(h, 500);
+                const ex = randomNumber(paddingX, safeW - paddingX - 70);
+                const ey = randomNumber(paddingY, safeH - paddingY - 70); 
+                const boss = new Enemy(5, ex, ey, true);
+                enemies.push(boss);
+                UI.log('Ein mächtiger Boss erscheint!', '#ff8800');
+            } else {
+                // Immer Gegner spawnen, auch bei 0,0
+                const enemyCount = this.pickEnemyCount();
+                UI.log(`Es erscheinen ${enemyCount} Gegner im Gebiet.`);
                 
-                const distance = Math.abs(gx) + Math.abs(gy);
-                const enemyLevel = Math.max(1, this.player.level + Math.floor(distance / 2));
-                
-                const enemy = new Enemy(enemyLevel, ex, ey);
-                enemies.push(enemy);
-                console.log(`Spawned Enemy at ${ex}, ${ey}`);
+                for (let i = 0; i < enemyCount; i++) {
+                    // Sicherstellen, dass Koordinaten im sichtbaren Bereich sind
+                    const paddingX = 100;
+                    const paddingY = 150; // Mehr Platz oben/unten für UI
+                    
+                    // Fallback falls Canvas zu klein (z.B. Test-Environment)
+                    const safeW = Math.max(w, 400);
+                    const safeH = Math.max(h, 400);
+
+                    const ex = randomNumber(paddingX, safeW - paddingX - 40);
+                    const ey = randomNumber(paddingY, safeH - paddingY - 40); 
+                    
+                    const distance = Math.abs(gx) + Math.abs(gy);
+                    const enemyLevel = Math.max(1, this.player.level + Math.floor(distance / 2));
+                    
+                    const enemy = new Enemy(enemyLevel, ex, ey);
+                    enemies.push(enemy);
+                    console.log(`Spawned Enemy at ${ex}, ${ey}`);
+                }
             }
             
             this.grid[key] = {
@@ -125,9 +138,10 @@ export class GameMap {
 
         this.currentRoom.enemies = this.currentRoom.enemies.filter(e => {
             if (e.isDead()) {
+                const expReward = e.expReward !== undefined ? e.expReward : (20 + e.level * 5);
                 this.player.gainGold(e.goldReward);
-                this.player.gainExp(20 + e.level * 5);
-                UI.log(`${e.name} wurde besiegt! +${e.goldReward} Gold, +${20 + e.level * 5} EXP.`, '#90ee90');
+                this.player.gainExp(expReward);
+                UI.log(`${e.name} wurde besiegt! +${e.goldReward} Gold, +${expReward} EXP.`, '#90ee90');
                 
                 if (this.player.interactionTarget === e) {
                     this.player.interactionTarget = null;

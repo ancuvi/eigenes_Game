@@ -329,6 +329,28 @@ canvas {
 
 #stats-content div {
     margin: 4px 0;
+}
+
+.stats-section {
+    margin-bottom: 10px;
+    border-top: 1px solid #222;
+    padding-top: 8px;
+}
+
+.stats-section:first-child {
+    border-top: none;
+    padding-top: 0;
+}
+
+.section-title {
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.stat-row {
     display: flex;
+    justify-content: space-between;
     gap: 8px;
+    font-size: 13px;
 }
