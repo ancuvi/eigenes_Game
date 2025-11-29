@@ -19,7 +19,7 @@ class Game {
         // InputHandler nur aktivieren, wenn Spiel läuft? 
         // Aktuell fängt er Events auf dem Canvas ab. Im Start-Screen ignorieren wir das einfach im Update.
         this.inputHandler = new InputHandler(this.canvas, this.player, this.map);
-        this.renderer = new Renderer(this.canvas, this.player, this.map);
+        this.renderer = new Renderer(this.canvas, this.player, this.map, this.inputHandler);
 
         this.lastTime = 0;
         this.isRunning = false;

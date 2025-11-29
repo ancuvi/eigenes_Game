@@ -218,9 +218,10 @@ export class GameMap {
                 break;
         }
 
-        this.player.targetX = this.player.x;
-        this.player.targetY = this.player.y;
-        this.player.isMoving = false;
+        // Velocity beibehalten für flüssigen Übergang
+        // this.player.targetX = this.player.x;
+        // this.player.targetY = this.player.y;
+        // this.player.isMoving = false;
         this.player.interactionTarget = null;
 
         this.loadRoom(newGx, newGy);
@@ -262,6 +263,9 @@ export class GameMap {
 
     update(dt) {
         if (!this.currentRoom) return;
+        
+        // Kollisionen prüfen (Wände/Türen)
+        this.checkCollisions();
 
         this.currentRoom.enemies.forEach(enemy => {
             enemy.update(dt, this.player);
@@ -281,6 +285,58 @@ export class GameMap {
             }
             return true;
         });
+    }
+
+    checkCollisions() {
+        const p = this.player;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        const wall = 20; // Wanddicke
+        const doorW = 100; // Türbreite
+        
+        const layout = this.currentRoom.layout;
+        const isClear = this.currentRoom.enemies.length === 0;
+
+        // Links
+        if (p.x < wall) {
+            // Check Door
+            const inDoorRange = p.y + p.height/2 > h/2 - doorW/2 && p.y + p.height/2 < h/2 + doorW/2;
+            if (layout.neighbors.left && isClear && inDoorRange) {
+                this.switchRoom('left');
+                return;
+            }
+            p.x = wall;
+        }
+        
+        // Rechts
+        if (p.x + p.width > w - wall) {
+            const inDoorRange = p.y + p.height/2 > h/2 - doorW/2 && p.y + p.height/2 < h/2 + doorW/2;
+            if (layout.neighbors.right && isClear && inDoorRange) {
+                this.switchRoom('right');
+                return;
+            }
+            p.x = w - wall - p.width;
+        }
+        
+        // Oben
+        if (p.y < wall) {
+            const inDoorRange = p.x + p.width/2 > w/2 - doorW/2 && p.x + p.width/2 < w/2 + doorW/2;
+            if (layout.neighbors.up && isClear && inDoorRange) {
+                this.switchRoom('up');
+                return;
+            }
+            p.y = wall;
+        }
+        
+        // Unten
+        if (p.y + p.height > h - wall) {
+            const inDoorRange = p.x + p.width/2 > w/2 - doorW/2 && p.x + p.width/2 < w/2 + doorW/2;
+            if (layout.neighbors.down && isClear && inDoorRange) {
+                this.switchRoom('down');
+                return;
+            }
+            p.y = h - wall - p.height;
+        }
     }
 
     getEnemies() {

@@ -1,11 +1,12 @@
 // Renderer: Zeichnet alles auf das Canvas
 
 export class Renderer {
-    constructor(canvas, player, map) {
+    constructor(canvas, player, map, inputHandler) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.player = player;
         this.map = map;
+        this.inputHandler = inputHandler;
     }
 
     draw() {
@@ -42,20 +43,39 @@ export class Renderer {
         this.drawEntity(this.player, '#43a047'); // Kräftiges Grün
         this.drawHealthBar(this.player);
 
-        // 5. Ziel-Marker
-        if (this.player.isMoving) {
+        // 5. Joystick (Visual Feedback)
+        if (this.inputHandler && this.inputHandler.isDragging) {
+            const startX = this.inputHandler.startX;
+            const startY = this.inputHandler.startY;
+            const currX = this.inputHandler.currentX;
+            const currY = this.inputHandler.currentY;
+            
+            // Outer Circle (Static)
             this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            this.ctx.lineWidth = 2;
             this.ctx.beginPath();
-            this.ctx.arc(this.player.targetX, this.player.targetY, 5, 0, Math.PI * 2);
+            this.ctx.arc(startX, startY, 40, 0, Math.PI * 2);
             this.ctx.stroke();
             
-            // Linie zum Ziel
+            // Calculate Knob Position (Clamped)
+            const dx = currX - startX;
+            const dy = currY - startY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const maxDist = 40;
+            
+            let knobX = currX;
+            let knobY = currY;
+            
+            if (dist > maxDist) {
+                knobX = startX + (dx / dist) * maxDist;
+                knobY = startY + (dy / dist) * maxDist;
+            }
+            
+            // Inner Circle (Knob)
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
             this.ctx.beginPath();
-            this.ctx.moveTo(this.player.x + this.player.width/2, this.player.y + this.player.height/2);
-            this.ctx.lineTo(this.player.targetX, this.player.targetY);
-            this.ctx.setLineDash([5, 5]);
-            this.ctx.stroke();
-            this.ctx.setLineDash([]);
+            this.ctx.arc(knobX, knobY, 15, 0, Math.PI * 2);
+            this.ctx.fill();
         }
     }
 
@@ -102,22 +122,32 @@ export class Renderer {
         this.ctx.fillRect(w - wallThick, 0, wallThick, h);
 
         // Türen / Löcher in den Wänden
-        // Wir zeichnen einfach "Boden" über die Wand, wenn eine Tür da ist
-        this.ctx.fillStyle = '#2a2a2a'; // Floor color
+        const cx = this.map.currentGridX;
+        const cy = this.map.currentGridY;
+
+        // Helper zum Prüfen ob Nachbar besucht
+        const getDoorColor = (dx, dy) => {
+            const key = `${cx + dx},${cy + dy}`;
+            return this.map.grid[key] ? '#666' : '#222'; // Hell für besucht, Dunkel für unbekannt
+        };
 
         if (layout.neighbors.up) {
+            this.ctx.fillStyle = getDoorColor(0, 1);
             this.ctx.fillRect(w/2 - doorSize/2, 0, doorSize, wallThick);
             if (isClear) this.drawArrow(w/2, wallThick + 20, 'up');
         }
         if (layout.neighbors.down) {
+            this.ctx.fillStyle = getDoorColor(0, -1);
             this.ctx.fillRect(w/2 - doorSize/2, h - wallThick, doorSize, wallThick);
             if (isClear) this.drawArrow(w/2, h - wallThick - 20, 'down');
         }
         if (layout.neighbors.left) {
+            this.ctx.fillStyle = getDoorColor(-1, 0);
             this.ctx.fillRect(0, h/2 - doorSize/2, wallThick, doorSize);
             if (isClear) this.drawArrow(wallThick + 20, h/2, 'left');
         }
         if (layout.neighbors.right) {
+            this.ctx.fillStyle = getDoorColor(1, 0);
             this.ctx.fillRect(w - wallThick, h/2 - doorSize/2, wallThick, doorSize);
             if (isClear) this.drawArrow(w - wallThick - 20, h/2, 'right');
         }
