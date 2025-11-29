@@ -41,7 +41,7 @@ export class Renderer {
 
         // 4. Player
         this.drawEntity(this.player, '#43a047'); // Kräftiges Grün
-        this.drawHealthBar(this.player);
+        this.drawBars(this.player); // HP + EXP
 
         // 5. Joystick (Visual Feedback)
         if (this.inputHandler && this.inputHandler.isDragging) {
@@ -204,28 +204,53 @@ export class Renderer {
     }
 
     drawHealthBar(entity) {
+        // Wrapper für drawBars (nur HP)
+        this.drawBars(entity, false);
+    }
+
+    drawBars(entity, showExp = true) {
         const x = Math.floor(entity.x);
         const y = Math.floor(entity.y);
         const barWidth = entity.width;
         const barHeight = 5;
-        const yOffset = -10;
-
-        // Hintergrund
+        
+        // HP Bar (Unten)
+        let hpY = y - 10;
+        
+        // Background HP
         this.ctx.fillStyle = '#000';
-        this.ctx.fillRect(x, y + yOffset, barWidth, barHeight);
+        this.ctx.fillRect(x, hpY, barWidth, barHeight);
 
-        // Füllung
+        // Fill HP
         const hpPercent = Math.max(0, entity.hp / entity.maxHp);
         this.ctx.fillStyle = hpPercent > 0.5 ? '#00ff00' : (hpPercent > 0.2 ? '#ffff00' : '#ff0000');
-        this.ctx.fillRect(x, y + yOffset, barWidth * hpPercent, barHeight);
+        this.ctx.fillRect(x, hpY, barWidth * hpPercent, barHeight);
+        
+        // EXP Bar (Oben drauf, nur für Player)
+        if (showExp && entity === this.player) {
+            let expY = hpY - 7; // Über HP Bar
+            
+            // Background EXP
+            this.ctx.fillStyle = '#000';
+            this.ctx.fillRect(x, expY, barWidth, barHeight);
+            
+            // Fill EXP
+            const maxExp = entity.getNextLevelExp(entity.level);
+            const expPercent = Math.max(0, Math.min(1, entity.exp / maxExp));
+            this.ctx.fillStyle = '#00e5ff'; // Türkis
+            this.ctx.fillRect(x, expY, barWidth * expPercent, barHeight);
+        }
     }
 
     drawLabel(entity, text) {
         this.ctx.fillStyle = '#fff';
         this.ctx.font = '12px monospace';
         this.ctx.textAlign = 'center';
-        // Über der Lebensanzeige platzieren
-        this.ctx.fillText(text, entity.x + entity.width / 2, entity.y - 18);
+        // Label noch höher setzen, falls EXP Bar da ist
+        let yOffset = -20;
+        if (entity === this.player) yOffset = -28;
+        
+        this.ctx.fillText(text, entity.x + entity.width / 2, entity.y + yOffset);
         this.ctx.textAlign = 'start';
     }
 
