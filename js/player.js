@@ -65,7 +65,7 @@ export class Player {
         this.targetX = this.x;
         this.targetY = this.y;
         this.isMoving = false;
-        this.moveMode = 'manual'; // 'manual' (Joystick) or 'auto' (Click)
+        this.moveMode = 'manual'; // 'manual' (Joystick) or 'auto' (Click/Bot)
 
         this.isDashing = false;
         this.dashRange = 100;
@@ -131,26 +131,132 @@ export class Player {
                 // Auto Mode (Click to Move)
                 const dist = getDistance(this.x, this.y, this.targetX, this.targetY);
                 let stopDistance = 2;
-                if (this.interactionTarget) {
-                    stopDistance = this.interactionRange;
+                
+                // Wenn wir ein Interaktionsziel haben, stoppen wir in Range
+                if (this.interactionTarget && !this.interactionTarget.isDead()) {
+                    // Checke Distanz zum Ziel (Mitte)
+                    const tx = this.interactionTarget.x + this.interactionTarget.width/2;
+                    const ty = this.interactionTarget.y + this.interactionTarget.height/2;
+                    const d = getDistance(this.x + this.width/2, this.y + this.height/2, tx, ty);
+                    
+                    if (d <= this.interactionRange) {
+                        this.isMoving = false;
+                        // Angreifen passiert in autoAttack
+                    } else {
+                        // Weiterlaufen
+                    }
                 }
 
-                if (dist <= stopDistance) {
-                    this.isMoving = false;
-                } else {
-                    const moveDist = currentSpeed * dt;
-                    const ratio = moveDist / dist;
-                    this.x += (this.targetX - this.x) * ratio;
-                    this.y += (this.targetY - this.y) * ratio;
+                if (this.isMoving) {
+                    if (dist <= stopDistance) {
+                        this.isMoving = false;
+                    } else {
+                        const moveDist = currentSpeed * dt;
+                        const ratio = moveDist / dist;
+                        this.x += (this.targetX - this.x) * ratio;
+                        this.y += (this.targetY - this.y) * ratio;
+                    }
                 }
             }
         } else if (this.interactionTarget && !this.interactionTarget.isDead() && this.moveMode === 'auto') {
-             // Re-Engage logic in auto mode
-             const dist = getDistance(this.x, this.y, this.interactionTarget.x, this.interactionTarget.y);
+             // Re-Engage logic in auto mode (wenn Ziel wegläuft)
+             const tx = this.interactionTarget.x + this.interactionTarget.width/2;
+             const ty = this.interactionTarget.y + this.interactionTarget.height/2;
+             const dist = getDistance(this.x + this.width/2, this.y + this.height/2, tx, ty);
+             
              if (dist > this.interactionRange) {
                  this.isMoving = true; 
-                 this.setTarget(this.interactionTarget.x + this.interactionTarget.width/2, this.interactionTarget.y + this.interactionTarget.height/2, this.interactionTarget);
+                 this.setTarget(tx, ty, this.interactionTarget);
              }
+        }
+    }
+    
+    updateAutoPilot(map, dt) {
+        const cx = this.x + this.width/2;
+        const cy = this.y + this.height/2;
+
+        // 1. Items sammeln (Höchste Prio)
+        const items = map.getItems();
+        if (items.length > 0) {
+            // Finde nächstes Item
+            let nearestItem = null;
+            let minDist = Infinity;
+            items.forEach(item => {
+                const d = getDistance(cx, cy, item.x + item.width/2, item.y + item.height/2);
+                if (d < minDist) {
+                    minDist = d;
+                    nearestItem = item;
+                }
+            });
+            
+            if (nearestItem) {
+                // Laufe zum Item
+                this.setTarget(nearestItem.x + nearestItem.width/2, nearestItem.y + nearestItem.height/2, null);
+                return;
+            }
+        }
+
+        // 2. Kampf
+        const enemies = map.getEnemies();
+        if (enemies.length > 0) {
+            let nearestEnemy = null;
+            let minDist = Infinity;
+            enemies.forEach(e => {
+                const d = getDistance(cx, cy, e.x + e.width/2, e.y + e.height/2);
+                if (d < minDist) {
+                    minDist = d;
+                    nearestEnemy = e;
+                }
+            });
+
+            if (nearestEnemy) {
+                if (this.weapon === 'sword') {
+                    // Schwert: Drauf laufen
+                    this.setTarget(nearestEnemy.x + nearestEnemy.width/2, nearestEnemy.y + nearestEnemy.height/2, nearestEnemy);
+                } else {
+                    // Zauberstab: Kiting / Positioning
+                    if (minDist > 300) {
+                        // Annähern
+                        this.setTarget(nearestEnemy.x + nearestEnemy.width/2, nearestEnemy.y + nearestEnemy.height/2, nearestEnemy);
+                    } else if (minDist < 150) {
+                        // Weglaufen
+                        const dx = this.x - nearestEnemy.x;
+                        const dy = this.y - nearestEnemy.y;
+                        this.setTarget(this.x + dx, this.y + dy, null);
+                    } else {
+                        // Stehen bleiben und feuern
+                        this.isMoving = false;
+                        this.setTarget(this.x, this.y, nearestEnemy); // Target für AutoAttack setzen
+                    }
+                }
+            }
+            return;
+        }
+
+        // 3. Raumwechsel (Wenn leer)
+        const room = map.currentRoom;
+        if (room && room.layout) {
+            // Finde einen Ausgang
+            // Wir suchen einfach den ersten verfügbaren Nachbarn
+            const neighbors = room.layout.neighbors;
+            let targetDoor = null;
+            
+            // Bevorzugt unbesuchte? Wissen wir hier nicht direkt (Grid ist in Map).
+            // Einfache Logik: Zufälliger Ausgang oder Reihenfolge.
+            
+            const w = room.width;
+            const h = room.height;
+            const doorW = 100;
+            const border = 30; // Zielpunkt etwas in den Ausgang rein
+
+            if (neighbors.up) targetDoor = { x: w/2, y: border };
+            else if (neighbors.right) targetDoor = { x: w - border, y: h/2 };
+            else if (neighbors.left) targetDoor = { x: border, y: h/2 };
+            else if (neighbors.down) targetDoor = { x: w/2, y: h - border };
+            
+            if (targetDoor) {
+                this.setTarget(targetDoor.x, targetDoor.y, null);
+            }
         }
     }
     
@@ -194,13 +300,8 @@ export class Player {
     }
 
     interact(target, map) {
-        if (target.constructor.name === 'Enemy') {
-            // Kampf
-            if (this.attackCooldownTimer <= 0) {
-                this.attack(target, map);
-                this.attackCooldownTimer = this.attackCooldownMs / 1000;
-            }
-        }
+        // Nicht mehr genutzt durch updateAutoPilot Logic?
+        // Doch, wenn isMoving false wird und target gesetzt ist.
     }
 
     attack(enemy, map) {
@@ -217,13 +318,12 @@ export class Player {
         if (this.weapon === 'sword') {
             // Nahkampf + Knockback
             enemy.takeDamage(dmg, this);
-            if (!enemy.isBoss) { // Boss ist immun gegen Knockback
+            if (!enemy.isBoss) { 
                 pushBack(enemy, this, 50); 
             }
         } else if (this.weapon === 'wand') {
             // Fernkampf Projektil
             if (map) {
-                // Target Mitte
                 const tx = enemy.x + enemy.width/2;
                 const ty = enemy.y + enemy.height/2;
                 const p = new Projectile(
@@ -248,9 +348,6 @@ export class Player {
     }
 
     onAttacked(attacker) {
-        // Bei Angriff Fokus wechseln?
-        // Wenn wir manuell laufen, ignorieren wir das vielleicht.
-        // Aber Target setzen ist okay für Auto-Attack Priority.
         this.interactionTarget = attacker;
     }
 
@@ -275,11 +372,9 @@ export class Player {
 
     levelUp() {
         this.level++;
-        // Standard-Erhöhungen
         this.maxHp += 25;
         this.attackPower += 3;
 
-        // Meilensteine
         if (this.level === 5) {
             this.maxHp += 20;
             this.attackPower += 3;
@@ -293,13 +388,11 @@ export class Player {
             UI.log('MEILENSTEIN: Level 10 erreicht! Angriffsgeschwindigkeit erhöht!', '#00ffcc');
         }
 
-        // Regeneration alle 5 Level leicht erhöhen
         if (this.level % 5 === 0) {
             this.hpRegen += 1;
             UI.log(`Deine Regeneration steigt auf ${this.hpRegen}/s.`, '#00ffcc');
         }
 
-        // Voll heilen
         this.hp = this.maxHp;
         UI.log(`LEVEL UP! Du bist jetzt Level ${this.level}!`, '#00ffff');
     }
@@ -313,21 +406,12 @@ export class Player {
     }
 
     reset() {
-        // Stats behalten! (Progression)
-        // this.level = 1;
-        // this.maxHp = 100;
-        // this.damage = 10;
-        // this.gold = 0;
-        // this.exp = 0;
-        
-        // HP vollheilen
         this.hp = this.maxHp;
-        
-        // States reset
         this.isMoving = false;
         this.interactionTarget = null;
         this.attackCooldownTimer = 0;
         this.isDashing = false;
         this.dashBonusReady = false;
+        this.moveMode = 'manual';
     }
 }

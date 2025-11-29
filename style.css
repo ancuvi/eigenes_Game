@@ -192,7 +192,7 @@ canvas {
 }
 
 /* Buttons (schon definiert oben, nur positionierung entfernt/angepasst) */
-#map-toggle, #stats-toggle {
+#map-toggle, #stats-toggle, #auto-btn {
     z-index: 20;
     padding: 6px 12px;
     border: 1px solid #555;
@@ -204,8 +204,21 @@ canvas {
     font-size: 12px;
 }
 
-#stats-toggle:hover {
+#map-toggle:hover, #stats-toggle:hover, #auto-btn:hover {
     background: #2b2b2b;
+}
+
+#auto-btn {
+    min-width: 80px;
+    text-align: center;
+    border-color: #d32f2f; /* Rot (Aus) */
+    color: #ffcdd2;
+}
+
+#auto-btn.auto-on {
+    border-color: #388e3c; /* Grün (An) */
+    background: #1b5e20;
+    color: #c8e6c9;
 }
 
 /* Map Overlay */

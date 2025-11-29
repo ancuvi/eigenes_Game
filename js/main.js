@@ -31,6 +31,7 @@ class Game {
         this.isRunning = false;
         this.mapOverlay = null;
         this.statsOverlay = null;
+        this.isAutoMode = false; // Auto-Pilot Status
 
         // State Management
         this.gameState = 'START'; // 'START' oder 'PLAYING'
@@ -97,6 +98,12 @@ class Game {
         // 5. Start Button binden
         if (this.startBtn) {
             this.startBtn.addEventListener('click', () => this.startGame());
+        }
+        
+        // Auto Button
+        const autoBtn = document.getElementById('auto-btn');
+        if (autoBtn) {
+            autoBtn.addEventListener('click', () => this.toggleAutoMode());
         }
 
         // 6. UI verstecken & Start Screen zeigen
@@ -167,22 +174,23 @@ class Game {
         if (this.gameState === 'START') {
             // Animation für Start Screen
             this.menuTime += dt;
-            // Player hüpft in der Mitte
             const centerY = this.canvas.height / 2 - this.player.height / 2;
-            const bounce = Math.abs(Math.sin(this.menuTime * 5) * 60); // Schnelles Hüpfen
-            
+            const bounce = Math.abs(Math.sin(this.menuTime * 5) * 60); 
             this.player.x = this.canvas.width / 2 - this.player.width / 2;
             this.player.y = centerY - bounce;
-            
-            // Verhindern dass Player wegrennt falls Input noch aktiv war
             this.player.targetX = this.player.x;
             this.player.targetY = this.player.y;
             this.player.isMoving = false;
-            
             return;
         }
 
         // PLAYING State
+        
+        // Auto-Pilot Logic
+        if (this.isAutoMode) {
+            this.player.updateAutoPilot(this.map, dt);
+        }
+
         this.player.update(dt);
         
         // Kamera Update
@@ -190,7 +198,7 @@ class Game {
             this.camera.update(this.player, this.map.currentRoom.width, this.map.currentRoom.height);
         }
         
-        // Auto-Attack triggern
+        // Auto-Attack triggern (auch im Auto-Mode relevant)
         this.player.autoAttack(dt, this.map.getEnemies(), this.map);
         
         this.map.update(dt);
@@ -207,6 +215,8 @@ class Game {
     handleGameOver() {
         UI.log('DU BIST GESTORBEN! Zurück zum Start...', '#ff0000');
         
+        if (this.isAutoMode) this.toggleAutoMode(); // Reset Auto Mode
+
         // Reset Player (behält Gold/XP)
         this.player.reset();
         
@@ -227,13 +237,19 @@ class Game {
 
     checkRoomClear() {
         if (this.gameState !== 'PLAYING') return;
-        
-        // Canvas-basiertes UI muss nicht aktualisiert werden, 
-        // da Renderer jeden Frame prüft ob Gegner da sind für Pfeile.
-        // Aber wir können hier Map Overlay updaten, falls nötig.
         if (this.map.getEnemies().length === 0) {
              // Eventuell Sound abspielen oder so
         }
+    }
+
+    toggleAutoMode() {
+        this.isAutoMode = !this.isAutoMode;
+        const btn = document.getElementById('auto-btn');
+        if (btn) {
+            btn.textContent = this.isAutoMode ? "Auto: ON" : "Auto: OFF";
+            btn.classList.toggle('auto-on', this.isAutoMode);
+        }
+        UI.log(this.isAutoMode ? "Auto-Pilot aktiviert." : "Auto-Pilot deaktiviert.", "#aaa");
     }
 }
 
