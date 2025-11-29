@@ -8,6 +8,7 @@ export class InputHandler {
         this.canvas = canvas;
         this.player = player;
         this.map = map;
+        this.camera = null; // Set by main.js
 
         this.isDragging = false;
         this.startX = 0;
@@ -104,8 +105,17 @@ export class InputHandler {
         }
     }
 
-    processClick(x, y) {
-        console.log(`Click at ${x}, ${y}`);
+    processClick(screenX, screenY) {
+        let x = screenX;
+        let y = screenY;
+        
+        // Transform to World Space if camera exists
+        if (this.camera) {
+            x += this.camera.x;
+            y += this.camera.y;
+        }
+        
+        console.log(`Click at ${x}, ${y} (Screen: ${screenX}, ${screenY})`);
 
         // 0. Prüfen ob Tür angeklickt wurde
         const doorDir = this.map.getDoorAt(x, y);
@@ -135,8 +145,21 @@ export class InputHandler {
         }
 
         if (clickedEnemy) {
-            // Nur Log, Bewegung ist jetzt manuell
             UI.log(`Gegner anvisiert: ${clickedEnemy.name}`);
+            
+            if (this.player.weapon === 'wand') {
+                // Zauberstab: Direkt angreifen (schießen)
+                this.player.attack(clickedEnemy, this.map);
+            } else {
+                // Schwert: Hinlaufen und hauen (Auto-Target)
+                // Wir zielen auf die Mitte des Gegners
+                const tx = clickedEnemy.x + clickedEnemy.width / 2;
+                const ty = clickedEnemy.y + clickedEnemy.height / 2;
+                this.player.setTarget(tx, ty, clickedEnemy);
+            }
+        } else {
+            // Bodenklick: Hinlaufen
+            this.player.setTarget(x, y, null);
         }
     }
 }

@@ -1,15 +1,12 @@
 // Enemy Klasse: Gegner mit Position und Stats
 import { randomNumber, getDistance, pushBack } from './utils.js';
+import { Projectile } from './projectile.js';
 
 export class Enemy {
-    /**
-     * Erstellt einen Gegner basierend auf dem Spieler-Level
-     * @param {number} playerLevel 
-     * @param {number} x Position X
-     * @param {number} y Position Y
-     * @param {boolean} isBoss Boss-Flag
-     */
     constructor(playerLevel, x, y, isBoss = false) {
+        this.isBoss = isBoss;
+        this.type = 'melee'; // 'melee' | 'ranged'
+
         // Basis-Werte
         const scaleFactor = 1.2;
         const isStarterSlime = !isBoss && playerLevel <= 1;
@@ -70,7 +67,7 @@ export class Enemy {
         this.attackWindup = 0.5;
     }
 
-    update(dt, player) {
+    update(dt, player, map) {
         if (this.isDead()) return;
 
         // Cooldown
@@ -78,57 +75,87 @@ export class Enemy {
             this.attackCooldown -= dt;
         }
 
-        // Aggro, falls Spieler in Reichweite oder bereits Ziel
         const distToPlayer = getDistance(this.x, this.y, player.x, player.y);
+        
+        // Aggro Logic
         if (distToPlayer <= this.aggroRange) {
             this.isAggro = true;
             this.target = player;
         }
-
-        const target = this.target || player;
-        const distToTarget = getDistance(this.x, this.y, target.x, target.y);
-
-        // Leash: wenn zu weit weg, Aggro verlieren
-        if (this.isAggro && distToTarget > this.leashRange) {
+        if (this.isAggro && distToPlayer > this.leashRange) {
             this.isAggro = false;
             this.target = null;
-            this.telegraphTimer = 0;
         }
 
-        // Bewegung Richtung Ziel oder Angriff, wenn aggro
-        if (this.isAggro && !target.isDead()) {
-            if (distToTarget <= this.attackRange) {
-                // Telegraph und dann schlagen
-                if (this.telegraphTimer > 0) {
-                    this.telegraphTimer -= dt;
-                    if (this.telegraphTimer <= 0) {
-                        // Wenn noch in Reichweite schlagen
-                        if (getDistance(this.x, this.y, target.x, target.y) <= this.attackRange) {
-                            this.performAttack(target);
-                        } else {
-                            // Ziel entkommen
-                            this.attackCooldown = 0.2;
-                        }
-                    }
-                } else if (this.attackCooldown <= 0) {
-                    this.telegraphTimer = this.attackWindup;
-                }
+        if (this.isAggro && !player.isDead()) {
+            if (this.type === 'ranged') {
+                this.updateRanged(dt, player, distToPlayer, map);
             } else {
-                const moveDist = this.speed * dt;
-                const dirX = target.x - this.x;
-                const dirY = target.y - this.y;
-                const len = Math.max(1, Math.sqrt(dirX * dirX + dirY * dirY));
-                this.x += (dirX / len) * moveDist;
-                this.y += (dirY / len) * moveDist;
+                this.updateMelee(dt, player, distToPlayer);
             }
         }
     }
 
-    performAttack(player) {
+    updateMelee(dt, player, dist) {
+        if (dist <= this.attackRange) {
+            if (this.attackCooldown <= 0) {
+                this.performMeleeAttack(player);
+            }
+        } else {
+            // Chase
+            this.moveTowards(player.x, player.y, dt);
+        }
+    }
+
+    updateRanged(dt, player, dist, map) {
+        const kiteDist = 150;
+        const shootDist = 350;
+
+        if (dist < kiteDist) {
+            // Weglaufen
+            // Vektor vom Spieler weg: this - player
+            const dx = this.x - player.x;
+            const dy = this.y - player.y;
+            // Zielpunkt berechnen
+            this.moveTowards(this.x + dx, this.y + dy, dt);
+        } else if (dist < shootDist) {
+            // Stehen bleiben und schießen
+            if (this.attackCooldown <= 0 && map) {
+                this.performRangedAttack(player, map);
+            }
+        } else {
+            // Annähern
+            this.moveTowards(player.x, player.y, dt);
+        }
+    }
+
+    moveTowards(tx, ty, dt) {
+        const moveDist = this.speed * dt;
+        const dirX = tx - this.x;
+        const dirY = ty - this.y;
+        const len = Math.max(1, Math.sqrt(dirX * dirX + dirY * dirY));
+        this.x += (dirX / len) * moveDist;
+        this.y += (dirY / len) * moveDist;
+    }
+
+    performMeleeAttack(player) {
         player.takeDamage(this.damage, this);
         pushBack(player, this, 20);
         this.attackCooldown = 1.0 / this.attackSpeed;
-        this.telegraphTimer = 0;
+    }
+
+    performRangedAttack(player, map) {
+        const p = new Projectile(
+            this.x + this.width/2, 
+            this.y + this.height/2, 
+            player.x + player.width/2, 
+            player.y + player.height/2, 
+            300, // Speed
+            this.damage, 
+            'enemy'
+        );
+        map.addProjectile(p);
+        this.attackCooldown = 1.5 / this.attackSpeed; // Etwas langsamer schießen
     }
 
     takeDamage(amount, attacker = null) {

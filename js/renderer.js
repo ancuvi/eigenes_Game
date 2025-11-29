@@ -1,30 +1,50 @@
 // Renderer: Zeichnet alles auf das Canvas
 
 export class Renderer {
-    constructor(canvas, player, map, inputHandler) {
+    constructor(canvas, player, map, inputHandler, camera) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.player = player;
         this.map = map;
         this.inputHandler = inputHandler;
+        this.camera = camera;
     }
 
     draw() {
         if (!this.ctx) return;
 
-        // 1. Clear Screen
+        // 1. Clear Screen (Screen Space)
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.ctx.save();
+        
+        // Camera Transform
+        if (this.camera) {
+            this.ctx.translate(-this.camera.x, -this.camera.y);
+        }
 
-        // 2. Background
-        // Ein leicht anderer Farbton als CSS Background, damit wir sehen ob Canvas aktiv ist
-        this.ctx.fillStyle = '#2a2a2a'; // Dunkelgrau
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        // 2. Background (World Space)
+        // Sollte so groß sein wie der Raum.
+        const roomW = this.map.currentRoom ? this.map.currentRoom.width : this.canvas.width;
+        const roomH = this.map.currentRoom ? this.map.currentRoom.height : this.canvas.height;
+
+        this.ctx.fillStyle = '#2a2a2a'; 
+        this.ctx.fillRect(0, 0, roomW, roomH);
 
         // Grid-Hilfslinien für Tiefe
-        this.drawGrid();
+        this.drawGrid(roomW, roomH);
 
         // Wände und Türen zeichnen (Dungeon-Struktur)
-        this.drawWallsAndDoors();
+        this.drawWallsAndDoors(roomW, roomH);
+        
+        // Hindernisse zeichnen
+        this.drawObstacles();
+        
+        // Items zeichnen
+        this.drawItems();
+
+        // Projektile zeichnen
+        this.drawProjectiles();
 
         // 3. Enemies
         const enemies = this.map.getEnemies();
@@ -42,8 +62,10 @@ export class Renderer {
         // 4. Player
         this.drawEntity(this.player, '#43a047'); // Kräftiges Grün
         this.drawBars(this.player); // HP + EXP
+        
+        this.ctx.restore();
 
-        // 5. Joystick (Visual Feedback)
+        // 5. Joystick (Visual Feedback) - Screen Space
         if (this.inputHandler && this.inputHandler.isDragging) {
             const startX = this.inputHandler.startX;
             const startY = this.inputHandler.startY;
@@ -79,58 +101,144 @@ export class Renderer {
         }
     }
 
-    drawGrid() {
+    drawGrid(w, h) {
         this.ctx.strokeStyle = '#333';
         this.ctx.lineWidth = 1;
         this.ctx.beginPath();
         const step = 50;
         
         // Vertikale Linien
-        for (let x = 0; x < this.canvas.width; x += step) {
+        for (let x = 0; x <= w; x += step) {
             this.ctx.moveTo(x, 0);
-            this.ctx.lineTo(x, this.canvas.height);
+            this.ctx.lineTo(x, h);
         }
         
         // Horizontale Linien
-        for (let y = 0; y < this.canvas.height; y += step) {
+        for (let y = 0; y <= h; y += step) {
             this.ctx.moveTo(0, y);
-            this.ctx.lineTo(this.canvas.width, y);
+            this.ctx.lineTo(w, y);
         }
         this.ctx.stroke();
     }
+    
+    drawObstacles() {
+        const obstacles = this.map.getObstacles();
+        if (!obstacles) return;
+        
+        this.ctx.lineWidth = 2;
+        
+        obstacles.forEach(obs => {
+            const x = Math.floor(obs.x);
+            const y = Math.floor(obs.y);
+            const w = Math.floor(obs.width);
+            const h = Math.floor(obs.height);
+            
+            if (obs.type === 'void') {
+                // Abgrund / Void
+                this.ctx.fillStyle = '#000';
+                this.ctx.strokeStyle = '#111';
+                this.ctx.fillRect(x, y, w, h);
+                this.ctx.strokeRect(x, y, w, h);
+            } else {
+                // Wand / Stein
+                this.ctx.fillStyle = '#555';
+                this.ctx.strokeStyle = '#222';
+                
+                this.ctx.fillRect(x, y, w, h);
+                this.ctx.strokeRect(x, y, w, h);
+                
+                this.ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                this.ctx.fillRect(x, y, w, 5);
+            }
+        });
+    }
 
-    drawWallsAndDoors() {
+    drawProjectiles() {
+        const projectiles = this.map.getProjectiles();
+        if (!projectiles) return;
+
+        projectiles.forEach(p => {
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+            if (p.owner === 'player') {
+                this.ctx.fillStyle = '#ffeb3b'; // Gelb
+            } else {
+                this.ctx.fillStyle = '#f44336'; // Rot
+            }
+            this.ctx.fill();
+            this.ctx.strokeStyle = '#fff';
+            this.ctx.lineWidth = 1;
+            this.ctx.stroke();
+        });
+    }
+
+    drawItems() {
+        const items = this.map.getItems();
+        if (!items) return;
+
+        items.forEach(item => {
+            const x = item.x;
+            const y = item.y;
+            const w = item.width;
+            const h = item.height;
+            
+            // Glow Effekt
+            const time = Date.now() / 200;
+            this.ctx.shadowBlur = 10 + Math.sin(time) * 5;
+            this.ctx.shadowColor = 'white';
+
+            if (item.type === 'potion_hp') {
+                this.ctx.fillStyle = '#f00';
+                this.ctx.beginPath();
+                this.ctx.arc(x + w/2, y + h/2 + 2, 8, 0, Math.PI * 2); // Flasche
+                this.ctx.fill();
+                this.ctx.fillStyle = '#fff';
+                this.ctx.fillRect(x + w/2 - 2, y + h/2 - 8, 4, 6); // Hals
+            } else if (item.type === 'weapon_sword') {
+                this.ctx.fillStyle = '#ccc';
+                this.ctx.fillRect(x + w/2 - 2, y, 4, h); // Klinge
+                this.ctx.fillStyle = '#8b4513';
+                this.ctx.fillRect(x, y + h - 6, w, 4); // Griff
+            } else if (item.type === 'weapon_wand') {
+                this.ctx.fillStyle = '#8b4513';
+                this.ctx.fillRect(x + w/2 - 2, y, 4, h); // Stab
+                this.ctx.fillStyle = '#00ffff';
+                this.ctx.beginPath();
+                this.ctx.arc(x + w/2, y + 2, 5, 0, Math.PI * 2); // Gem
+                this.ctx.fill();
+            }
+            
+            this.ctx.shadowBlur = 0;
+        });
+    }
+
+    drawWallsAndDoors(roomW, roomH) {
         if (!this.map.currentRoom) return;
 
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        const w = roomW;
+        const h = roomH;
         const wallThick = 20;
         const doorSize = 100;
         const isClear = this.map.currentRoom.enemies.length === 0;
         const layout = this.map.currentRoom.layout;
 
         // Wände (Grün)
-        this.ctx.fillStyle = '#2e7d32'; // Dunkelgrün
+        this.ctx.fillStyle = '#2e7d32'; 
         
-        // Top Wall (Left part & Right part)
-        this.ctx.fillRect(0, 0, w, wallThick);
-        // Bottom Wall
-        this.ctx.fillRect(0, h - wallThick, w, wallThick);
-        // Left Wall
-        this.ctx.fillRect(0, 0, wallThick, h);
-        // Right Wall
-        this.ctx.fillRect(w - wallThick, 0, wallThick, h);
+        this.ctx.fillRect(0, 0, w, wallThick); // Top
+        this.ctx.fillRect(0, h - wallThick, w, wallThick); // Bottom
+        this.ctx.fillRect(0, 0, wallThick, h); // Left
+        this.ctx.fillRect(w - wallThick, 0, wallThick, h); // Right
 
-        // Türen / Löcher in den Wänden
         const cx = this.map.currentGridX;
         const cy = this.map.currentGridY;
 
-        // Helper zum Prüfen ob Nachbar besucht
         const getDoorColor = (dx, dy) => {
             const key = `${cx + dx},${cy + dy}`;
-            return this.map.grid[key] ? '#666' : '#222'; // Hell für besucht, Dunkel für unbekannt
+            return this.map.grid[key] ? '#666' : '#222'; 
         };
 
+        // Türen zentriert an den Wänden des RAUMES
         if (layout.neighbors.up) {
             this.ctx.fillStyle = getDoorColor(0, 1);
             this.ctx.fillRect(w/2 - doorSize/2, 0, doorSize, wallThick);
@@ -176,35 +284,29 @@ export class Renderer {
         }
         this.ctx.fill();
         
-        // Pulsierender Effekt
         const time = Date.now() / 200;
-        const offset = Math.sin(time) * 5;
         this.ctx.strokeStyle = `rgba(255, 255, 255, ${0.3 + Math.sin(time)*0.2})`;
         this.ctx.lineWidth = 2;
         this.ctx.stroke();
     }
 
     drawEntity(entity, color) {
-        // Sicherstellen, dass Koordinaten valide sind
         const x = Math.floor(entity.x);
         const y = Math.floor(entity.y);
         
         this.ctx.fillStyle = color;
         this.ctx.fillRect(x, y, entity.width, entity.height);
         
-        // Rahmen
         this.ctx.strokeStyle = '#fff';
         this.ctx.lineWidth = 2;
         this.ctx.strokeRect(x, y, entity.width, entity.height);
         
-        // Einfaches "Gesicht"
         this.ctx.fillStyle = '#000';
-        this.ctx.fillRect(x + 10, y + 10, 5, 5); // Auge links
-        this.ctx.fillRect(x + 25, y + 10, 5, 5); // Auge rechts
+        this.ctx.fillRect(x + 10, y + 10, 5, 5); 
+        this.ctx.fillRect(x + 25, y + 10, 5, 5); 
     }
 
     drawHealthBar(entity) {
-        // Wrapper für drawBars (nur HP)
         this.drawBars(entity, false);
     }
 
@@ -214,30 +316,24 @@ export class Renderer {
         const barWidth = entity.width;
         const barHeight = 5;
         
-        // HP Bar (Unten)
         let hpY = y - 10;
         
-        // Background HP
         this.ctx.fillStyle = '#000';
         this.ctx.fillRect(x, hpY, barWidth, barHeight);
 
-        // Fill HP
         const hpPercent = Math.max(0, entity.hp / entity.maxHp);
         this.ctx.fillStyle = hpPercent > 0.5 ? '#00ff00' : (hpPercent > 0.2 ? '#ffff00' : '#ff0000');
         this.ctx.fillRect(x, hpY, barWidth * hpPercent, barHeight);
         
-        // EXP Bar (Oben drauf, nur für Player)
         if (showExp && entity === this.player) {
-            let expY = hpY - 7; // Über HP Bar
+            let expY = hpY - 7; 
             
-            // Background EXP
             this.ctx.fillStyle = '#000';
             this.ctx.fillRect(x, expY, barWidth, barHeight);
             
-            // Fill EXP
             const maxExp = entity.getNextLevelExp(entity.level);
             const expPercent = Math.max(0, Math.min(1, entity.exp / maxExp));
-            this.ctx.fillStyle = '#00e5ff'; // Türkis
+            this.ctx.fillStyle = '#00e5ff'; 
             this.ctx.fillRect(x, expY, barWidth * expPercent, barHeight);
         }
     }
@@ -246,7 +342,6 @@ export class Renderer {
         this.ctx.fillStyle = '#fff';
         this.ctx.font = '12px monospace';
         this.ctx.textAlign = 'center';
-        // Label noch höher setzen, falls EXP Bar da ist
         let yOffset = -20;
         if (entity === this.player) yOffset = -28;
         

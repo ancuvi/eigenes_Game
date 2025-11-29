@@ -1,42 +1,37 @@
 // Map Klasse: Verwaltet das Grid und den aktuellen Raum
 import { Enemy } from './enemy.js';
-import { randomNumber } from './utils.js';
+import { Projectile } from './projectile.js';
+import { Item } from './item.js';
+import { randomNumber, checkCollision } from './utils.js';
 import * as UI from './ui.js';
+import ROOM_TEMPLATES from './roomPatterns.js';
 
 export class GameMap {
     constructor(player, canvas) {
         this.player = player;
         this.canvas = canvas; 
-        this.grid = {}; // Speichert generierte/besuchte Räume
-        this.dungeonLayout = {}; // Speichert das statische Layout
+        this.grid = {}; 
+        this.dungeonLayout = {}; 
         this.currentGridX = 0;
         this.currentGridY = 0;
         
-        // Konstanten für das Dungeon
         this.targetRoomCount = 15;
     }
 
-    /**
-     * Generiert einen festen Dungeon-Layout.
-     */
     generateDungeon() {
         console.log("Generiere Dungeon...");
         this.grid = {};
         this.dungeonLayout = {};
         
-        // Queue für BFS/Expansion
-        let queue = [{x: 0, y: 0, dist: 0}];
         this.dungeonLayout['0,0'] = { type: 'start', distance: 0, neighbors: {} };
         
+        let queue = [{x: 0, y: 0}];
         let roomCount = 1;
         
+        // Phase 1: Random Walker Generation
         while (queue.length > 0 && roomCount < this.targetRoomCount) {
-            // Zufällig einen Raum aus der Queue nehmen für organische Struktur
             const idx = Math.floor(Math.random() * queue.length);
             const current = queue[idx];
-            // Wir entfernen es nicht sofort, damit wir von hier mehrfach abzweigen können,
-            // aber wir müssen aufpassen, dass wir nicht stecken bleiben.
-            // Besser: Wir nehmen den Raum und versuchen, einen Nachbarn anzufügen.
             
             const dirs = [
                 { dx: 0, dy: 1, key: 'up' },
@@ -44,9 +39,7 @@ export class GameMap {
                 { dx: -1, dy: 0, key: 'left' },
                 { dx: 1, dy: 0, key: 'right' }
             ];
-            
-            // Mische Richtungen
-            dirs.sort(() => Math.random() - 0.5);
+            dirs.sort(() => Math.random() - 0.5); 
             
             let added = false;
             
@@ -56,26 +49,21 @@ export class GameMap {
                 const nKey = `${nx},${ny}`;
                 
                 if (!this.dungeonLayout[nKey]) {
-                    // Neuer Raum
                     this.dungeonLayout[nKey] = {
                         type: 'normal',
-                        distance: current.dist + 1,
+                        distance: 0, 
                         neighbors: {}
                     };
                     
-                    // Verknüpfe
                     this.dungeonLayout[`${current.x},${current.y}`].neighbors[d.key] = true;
-                    // Rückverknüpfung (Gegenrichtung)
                     const opp = d.key === 'up' ? 'down' : (d.key === 'down' ? 'up' : (d.key === 'left' ? 'right' : 'left'));
                     this.dungeonLayout[nKey].neighbors[opp] = true;
                     
-                    queue.push({x: nx, y: ny, dist: current.dist + 1});
+                    queue.push({x: nx, y: ny});
                     roomCount++;
                     added = true;
-                    break; // Nur einen Raum pro Step hinzufügen
+                    break; 
                 } else {
-                    // Raum existiert schon, evtl. verbinden? (Loop closure)
-                    // Für "Binding of Isaac"-Feel sind Loops okay, aber selten.
                     if (Math.random() < 0.1) {
                          this.dungeonLayout[`${current.x},${current.y}`].neighbors[d.key] = true;
                          const opp = d.key === 'up' ? 'down' : (d.key === 'down' ? 'up' : (d.key === 'left' ? 'right' : 'left'));
@@ -84,11 +72,13 @@ export class GameMap {
                 }
             }
             
-            if (!added) {
-                // Wenn von diesem Raum nichts mehr wachsen kann (oder Zufall), entfernen
+            if (!added && Math.random() < 0.5) { 
                 queue.splice(idx, 1);
             }
         }
+        
+        // Phase 2: Distanzen berechnen (BFS) für Boss-Platzierung
+        this.calculateDistances();
         
         // Boss Raum bestimmen (weiteste Distanz)
         let maxDist = -1;
@@ -99,20 +89,44 @@ export class GameMap {
                 bossKey = k;
             }
         });
+        
         if (bossKey && bossKey !== '0,0') {
             this.dungeonLayout[bossKey].type = 'boss';
+            console.log(`Boss Raum gesetzt bei ${bossKey} (Distanz: ${maxDist})`);
         }
         
-        console.log(`Dungeon generiert: ${roomCount} Räume. Boss bei ${bossKey}`);
+        console.log(`Dungeon generiert: ${roomCount} Räume.`);
+    }
+    
+    calculateDistances() {
+        Object.values(this.dungeonLayout).forEach(r => r.distance = -1);
+        
+        const queue = [{key: '0,0', dist: 0}];
+        this.dungeonLayout['0,0'].distance = 0;
+        
+        while (queue.length > 0) {
+            const current = queue.shift();
+            const [cx, cy] = current.key.split(',').map(Number);
+            const room = this.dungeonLayout[current.key];
+            
+            if (room.neighbors.up) this.visitNeighbor(cx, cy + 1, current.dist + 1, queue);
+            if (room.neighbors.down) this.visitNeighbor(cx, cy - 1, current.dist + 1, queue);
+            if (room.neighbors.left) this.visitNeighbor(cx - 1, cy, current.dist + 1, queue);
+            if (room.neighbors.right) this.visitNeighbor(cx + 1, cy, current.dist + 1, queue);
+        }
+    }
+    
+    visitNeighbor(x, y, dist, queue) {
+        const key = `${x},${y}`;
+        if (this.dungeonLayout[key] && this.dungeonLayout[key].distance === -1) {
+            this.dungeonLayout[key].distance = dist;
+            queue.push({key, dist});
+        }
     }
 
-    /**
-     * Lädt einen Raum basierend auf Grid-Koordinaten.
-     */
     loadRoom(gx, gy) {
         const key = `${gx},${gy}`;
         
-        // Stelle sicher, dass Dungeon existiert
         if (Object.keys(this.dungeonLayout).length === 0) {
             this.generateDungeon();
         }
@@ -127,40 +141,73 @@ export class GameMap {
 
         if (!this.grid[key]) {
             const enemies = [];
-            const w = this.canvas.width;
-            const h = this.canvas.height;
-            const paddingX = 100;
-            const paddingY = 150;
-            const safeW = Math.max(w, 400);
-            const safeH = Math.max(h, 400);
-
+            const obstacles = [];
+            const projectiles = [];
+            const items = [];
+            let roomWidth = this.canvas.width;
+            let roomHeight = this.canvas.height;
+            let template = null;
+            
             if (layout.type === 'start') {
-                // Keine Gegner
                 UI.log('Ein sicherer Ort.');
-            } else if (layout.type === 'boss') {
-                const ex = w / 2 - 35; // Mitte-ish
-                const ey = h / 2 - 35; 
-                const boss = new Enemy(5, ex, ey, true);
-                enemies.push(boss);
-                UI.log('BOSS RAUM! Mach dich bereit!', '#ff0000');
-            } else {
-                // Normaler Raum
-                const enemyCount = this.pickEnemyCount();
-                // UI Log nur wenn wirklich Gegner da sind
-                if (enemyCount > 0) UI.log(`${enemyCount} Gegner lauern hier.`);
+                const tpl = ROOM_TEMPLATES['1_Door'][0]; 
+                this.parseTemplate(tpl.grid, enemies, obstacles, true); 
+                roomWidth = this.lastParsedWidth;
+                roomHeight = this.lastParsedHeight;
                 
-                for (let i = 0; i < enemyCount; i++) {
-                    const ex = randomNumber(paddingX, safeW - paddingX - 40);
-                    const ey = randomNumber(paddingY, safeH - paddingY - 40); 
-                    const enemy = new Enemy(1, ex, ey);
-                    enemies.push(enemy);
+            } else if (layout.type === 'boss') {
+                UI.log('BOSS RAUM! Mach dich bereit!', '#ff0000');
+                const templates = ROOM_TEMPLATES['BOSS'];
+                template = templates[Math.floor(Math.random() * templates.length)];
+                this.parseTemplate(template.grid, enemies, obstacles);
+                roomWidth = this.lastParsedWidth;
+                roomHeight = this.lastParsedHeight;
+                
+            } else {
+                const neighborCount = Object.keys(layout.neighbors).length;
+                
+                if (neighborCount === 1 && Math.random() < 0.1) {
+                    UI.log('Du hast einen versteckten Raum gefunden!', '#ffd700');
+                    const templates = ROOM_TEMPLATES['SECRET'];
+                    template = templates[Math.floor(Math.random() * templates.length)];
+                } else {
+                    let templateKey = '1_Door';
+                    if (neighborCount === 2) templateKey = '2_Doors';
+                    if (neighborCount === 3) templateKey = '3_Doors';
+                    if (neighborCount === 4) templateKey = '4_Doors';
+                    
+                    const templates = ROOM_TEMPLATES[templateKey];
+                    
+                    const largeTemplates = templates.filter(t => t.size !== '1x1');
+                    const normalTemplates = templates.filter(t => t.size === '1x1');
+                    
+                    if (largeTemplates.length > 0 && Math.random() < 0.2) {
+                        template = largeTemplates[Math.floor(Math.random() * largeTemplates.length)];
+                    } else {
+                        if (normalTemplates.length > 0) {
+                            template = normalTemplates[Math.floor(Math.random() * normalTemplates.length)];
+                        } else {
+                            template = templates[Math.floor(Math.random() * templates.length)];
+                        }
+                    }
                 }
+                
+                this.parseTemplate(template.grid, enemies, obstacles);
+                roomWidth = this.lastParsedWidth;
+                roomHeight = this.lastParsedHeight;
+                
+                if (enemies.length > 0) UI.log(`${enemies.length} Gegner lauern hier.`);
             }
             
             this.grid[key] = {
                 enemies: enemies,
+                obstacles: obstacles,
+                projectiles: projectiles,
+                items: items,
                 visited: true,
-                layout: layout // Referenz auf Layout für Türen
+                layout: layout,
+                width: roomWidth,
+                height: roomHeight
             };
         }
 
@@ -168,95 +215,115 @@ export class GameMap {
         this.currentGridY = gy;
         this.currentRoom = this.grid[key];
         this.currentRoom.visited = true;
-        
-        // Debug Log
-        console.log(`Current Room Enemies:`, this.currentRoom.enemies.length);
     }
-
-    pickEnemyCount() {
-        // Gewichtete Wahrscheinlichkeiten für 1-5 Gegner, Bias auf 3
-        // 1:10%, 2:20%, 3:40%, 4:20%, 5:10%
-        const roll = Math.random();
-        if (roll < 0.10) return 1;
-        if (roll < 0.30) return 2;
-        if (roll < 0.70) return 3;
-        if (roll < 0.90) return 4;
-        return 5;
+    
+    parseTemplate(grid, enemies, obstacles, forceNoEnemies = false) {
+        const rows = grid.length; 
+        const cols = grid[0].length;
+        
+        const wall = 20;
+        
+        const screenW = this.canvas.width;
+        const screenH = this.canvas.height;
+        
+        const baseCols = 13;
+        const baseRows = 9;
+        
+        const tileW = (screenW - 2 * wall) / baseCols;
+        const tileH = (screenH - 2 * wall) / baseRows;
+        
+        const roomW = cols * tileW + 2 * wall;
+        const roomH = rows * tileH + 2 * wall;
+        
+        this.lastParsedWidth = roomW;
+        this.lastParsedHeight = roomH;
+        
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const cell = grid[r][c];
+                const x = wall + c * tileW;
+                const y = wall + r * tileH;
+                
+                if (cell === 1 || cell === 9) {
+                    obstacles.push({
+                        x: x,
+                        y: y,
+                        width: tileW,
+                        height: tileH,
+                        type: cell === 9 ? 'void' : 'wall'
+                    });
+                } else if (!forceNoEnemies) {
+                    if (cell === 2) { 
+                        const ex = x + tileW/2 - 20; 
+                        const ey = y + tileH/2 - 20;
+                        const enemy = new Enemy(1, ex, ey);
+                        enemy.type = Math.random() < 0.3 ? 'ranged' : 'melee';
+                        enemies.push(enemy);
+                    } else if (cell === 5) {
+                        const ex = x + tileW/2 - 35; 
+                        const ey = y + tileH/2 - 35;
+                        const boss = new Enemy(5, ex, ey, true);
+                        boss.type = 'melee'; 
+                        enemies.push(boss);
+                    }
+                }
+            }
+        }
+        
+        return { width: roomW, height: roomH };
     }
 
     switchRoom(direction) {
         let newGx = this.currentGridX;
         let newGy = this.currentGridY;
         
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        // Bei Dungeon Crawler: Spieler spawnt direkt "vor" der Tür, durch die er kam
-        // Wir nehmen an, Wände sind ca 20px dick, Türen sind am Rand.
+        switch(direction) {
+            case 'up': newGy++; break;
+            case 'down': newGy--; break;
+            case 'left': newGx--; break;
+            case 'right': newGx++; break;
+        }
+        
+        this.loadRoom(newGx, newGy);
+        
+        const w = this.currentRoom.width;
+        const h = this.currentRoom.height;
         const spawnMargin = 60; 
         const playerSize = this.player.width;
 
         switch(direction) {
             case 'up':
-                newGy++;
                 this.player.x = w / 2 - playerSize / 2;
                 this.player.y = h - spawnMargin - playerSize;
                 break;
             case 'down':
-                newGy--;
                 this.player.x = w / 2 - playerSize / 2;
                 this.player.y = spawnMargin;
                 break;
             case 'left':
-                newGx--;
                 this.player.x = w - spawnMargin - playerSize;
                 this.player.y = h / 2 - playerSize / 2;
                 break;
             case 'right':
-                newGx++;
                 this.player.x = spawnMargin;
                 this.player.y = h / 2 - playerSize / 2;
                 break;
         }
 
-        // Velocity beibehalten für flüssigen Übergang
-        // this.player.targetX = this.player.x;
-        // this.player.targetY = this.player.y;
-        // this.player.isMoving = false;
         this.player.interactionTarget = null;
-
-        this.loadRoom(newGx, newGy);
     }
     
     getDoorAt(x, y) {
         if (!this.currentRoom || this.currentRoom.enemies.length > 0) return null;
-        
         const layout = this.currentRoom.layout;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        const doorSize = 100; // Muss mit Renderer übereinstimmen
-        const wallThick = 20;
-
-        // Prüfen ob Klick auf Tür-Area war
+        const w = this.currentRoom.width; 
+        const h = this.currentRoom.height;
+        const doorSize = 100;
         
-        // Top Door
-        if (layout.neighbors.up) {
-            if (y <= 50 && x >= w/2 - doorSize/2 && x <= w/2 + doorSize/2) return 'up';
-        }
-        
-        // Bottom Door
-        if (layout.neighbors.down) {
-            if (y >= h - 50 && x >= w/2 - doorSize/2 && x <= w/2 + doorSize/2) return 'down';
-        }
-        
-        // Left Door
-        if (layout.neighbors.left) {
-            if (x <= 50 && y >= h/2 - doorSize/2 && y <= h/2 + doorSize/2) return 'left';
-        }
-        
-        // Right Door
-        if (layout.neighbors.right) {
-            if (x >= w - 50 && y >= h/2 - doorSize/2 && y <= h/2 + doorSize/2) return 'right';
-        }
+        if (layout.neighbors.up && y <= 50 && x >= w/2 - doorSize/2 && x <= w/2 + doorSize/2) return 'up';
+        if (layout.neighbors.down && y >= h - 50 && x >= w/2 - doorSize/2 && x <= w/2 + doorSize/2) return 'down';
+        if (layout.neighbors.left && x <= 50 && y >= h/2 - doorSize/2 && y <= h/2 + doorSize/2) return 'left';
+        if (layout.neighbors.right && x >= w - 50 && y >= h/2 - doorSize/2 && y <= h/2 + doorSize/2) return 'right';
         
         return null;
     }
@@ -264,11 +331,30 @@ export class GameMap {
     update(dt) {
         if (!this.currentRoom) return;
         
-        // Kollisionen prüfen (Wände/Türen)
-        this.checkCollisions();
+        // Player Collision
+        this.checkPlayerCollisions();
 
+        // Projectiles Update
+        if (this.currentRoom.projectiles) {
+            this.currentRoom.projectiles.forEach(p => p.update(dt, this));
+            this.currentRoom.projectiles = this.currentRoom.projectiles.filter(p => p.active);
+        }
+
+        // Items Update
+        if (this.currentRoom.items) {
+            this.currentRoom.items = this.currentRoom.items.filter(item => {
+                if (checkCollision(this.player, item)) {
+                    this.pickupItem(item);
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        // Enemies Update & Collision
         this.currentRoom.enemies.forEach(enemy => {
-            enemy.update(dt, this.player);
+            enemy.update(dt, this.player, this);
+            this.checkEntityCollision(enemy); // Auch Gegner kollidieren mit Wänden
         });
 
         this.currentRoom.enemies = this.currentRoom.enemies.filter(e => {
@@ -278,6 +364,8 @@ export class GameMap {
                 this.player.gainExp(expReward);
                 UI.log(`${e.name} wurde besiegt! +${e.goldReward} Gold, +${expReward} EXP.`, '#90ee90');
                 
+                this.trySpawnItem(e.x, e.y);
+
                 if (this.player.interactionTarget === e) {
                     this.player.interactionTarget = null;
                 }
@@ -287,59 +375,144 @@ export class GameMap {
         });
     }
 
-    checkCollisions() {
+    addProjectile(proj) {
+        if (this.currentRoom && this.currentRoom.projectiles) {
+            this.currentRoom.projectiles.push(proj);
+        }
+    }
+
+    trySpawnItem(x, y) {
+        if (Math.random() < 0.2) { 
+            const types = ['weapon_sword', 'weapon_wand', 'potion_hp'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            const item = new Item(x, y, type);
+            if (this.currentRoom.items) this.currentRoom.items.push(item);
+            console.log("Item dropped:", type);
+        }
+    }
+
+    pickupItem(item) {
+        if (item.type === 'potion_hp') {
+            this.player.heal(30);
+            UI.log("Trank gefunden! +30 HP", "#00ff00");
+        } else if (item.type === 'weapon_sword') {
+            this.player.switchWeapon('sword');
+            UI.log("Schwert ausgerüstet!", "#ffff00");
+        } else if (item.type === 'weapon_wand') {
+            this.player.switchWeapon('wand');
+            UI.log("Zauberstab ausgerüstet!", "#00ffff");
+        }
+    }
+
+    // Allgemeine Kollision für alle Entities (Player & Enemies)
+    checkEntityCollision(ent) {
+        const w = this.currentRoom.width; 
+        const h = this.currentRoom.height;
+        const wall = 20; 
+        
+        // Grenzen / Walls (Clamping)
+        if (ent.x < wall) ent.x = wall;
+        if (ent.x + ent.width > w - wall) ent.x = w - wall - ent.width;
+        if (ent.y < wall) ent.y = wall;
+        if (ent.y + ent.height > h - wall) ent.y = h - wall - ent.height;
+        
+        // Hindernisse
+        if (this.currentRoom.obstacles) {
+            for (let obs of this.currentRoom.obstacles) {
+                if (checkCollision(ent, obs)) {
+                    this.resolveAABB(ent, obs);
+                }
+            }
+        }
+    }
+
+    // Spezielle Logik für Player (Türen)
+    checkPlayerCollisions() {
         const p = this.player;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        const wall = 20; // Wanddicke
-        const doorW = 100; // Türbreite
+        
+        // Zuerst Doors checken (bevor wir clamped werden)
+        if (this.checkDoors(p)) return;
+        
+        // Dann normale Kollision (Wände/Steine)
+        this.checkEntityCollision(p);
+    }
+    
+    checkDoors(p) {
+        const w = this.currentRoom.width; 
+        const h = this.currentRoom.height;
+        const wall = 20; 
+        const doorW = 100; 
         
         const layout = this.currentRoom.layout;
         const isClear = this.currentRoom.enemies.length === 0;
 
         // Links
         if (p.x < wall) {
-            // Check Door
             const inDoorRange = p.y + p.height/2 > h/2 - doorW/2 && p.y + p.height/2 < h/2 + doorW/2;
             if (layout.neighbors.left && isClear && inDoorRange) {
                 this.switchRoom('left');
-                return;
+                return true;
             }
-            p.x = wall;
         }
-        
         // Rechts
         if (p.x + p.width > w - wall) {
             const inDoorRange = p.y + p.height/2 > h/2 - doorW/2 && p.y + p.height/2 < h/2 + doorW/2;
             if (layout.neighbors.right && isClear && inDoorRange) {
                 this.switchRoom('right');
-                return;
+                return true;
             }
-            p.x = w - wall - p.width;
         }
-        
         // Oben
         if (p.y < wall) {
             const inDoorRange = p.x + p.width/2 > w/2 - doorW/2 && p.x + p.width/2 < w/2 + doorW/2;
             if (layout.neighbors.up && isClear && inDoorRange) {
                 this.switchRoom('up');
-                return;
+                return true;
             }
-            p.y = wall;
         }
-        
         // Unten
         if (p.y + p.height > h - wall) {
             const inDoorRange = p.x + p.width/2 > w/2 - doorW/2 && p.x + p.width/2 < w/2 + doorW/2;
             if (layout.neighbors.down && isClear && inDoorRange) {
                 this.switchRoom('down');
-                return;
+                return true;
             }
-            p.y = h - wall - p.height;
+        }
+        return false;
+    }
+    
+    resolveAABB(p, rect) {
+        const overlapX = (p.width + rect.width) / 2 - Math.abs((p.x + p.width/2) - (rect.x + rect.width/2));
+        const overlapY = (p.height + rect.height) / 2 - Math.abs((p.y + p.height/2) - (rect.y + rect.height/2));
+        
+        if (overlapX < overlapY) {
+            if (p.x < rect.x) {
+                p.x -= overlapX;
+            } else {
+                p.x += overlapX;
+            }
+        } else {
+            if (p.y < rect.y) {
+                p.y -= overlapY;
+            } else {
+                p.y += overlapY;
+            }
         }
     }
 
     getEnemies() {
         return this.currentRoom ? this.currentRoom.enemies : [];
+    }
+    
+    getObstacles() {
+        return this.currentRoom ? this.currentRoom.obstacles : [];
+    }
+
+    getProjectiles() {
+        return this.currentRoom ? this.currentRoom.projectiles : [];
+    }
+
+    getItems() {
+        return this.currentRoom ? this.currentRoom.items : [];
     }
 }

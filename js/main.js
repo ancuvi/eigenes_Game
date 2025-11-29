@@ -4,6 +4,7 @@ import { Player } from './player.js';
 import { GameMap } from './map.js';
 import { InputHandler } from './input.js';
 import { Renderer } from './renderer.js';
+import { Camera } from './camera.js';
 import { MapOverlay } from './mapOverlay.js';
 import { StatsOverlay } from './statsOverlay.js';
 import * as UI from './ui.js';
@@ -19,7 +20,12 @@ class Game {
         // InputHandler nur aktivieren, wenn Spiel läuft? 
         // Aktuell fängt er Events auf dem Canvas ab. Im Start-Screen ignorieren wir das einfach im Update.
         this.inputHandler = new InputHandler(this.canvas, this.player, this.map);
-        this.renderer = new Renderer(this.canvas, this.player, this.map, this.inputHandler);
+        
+        // Kamera (wird in init erstellt)
+        this.camera = null;
+        
+        // Renderer bekommt Kamera später
+        this.renderer = null; 
 
         this.lastTime = 0;
         this.isRunning = false;
@@ -55,6 +61,11 @@ class Game {
             this.canvas.height = window.innerHeight;
         }
         
+        if (this.camera) {
+            this.camera.width = this.canvas.width;
+            this.camera.height = this.canvas.height;
+        }
+        
         console.log(`Resized to ${this.canvas.width}x${this.canvas.height}`);
         
         if (!this.isRunning && this.renderer) {
@@ -67,6 +78,11 @@ class Game {
         
         // 1. Größe korrekt setzen
         this.handleResize();
+        
+        // Kamera erstellen
+        this.camera = new Camera(this.canvas.width, this.canvas.height);
+        this.inputHandler.camera = this.camera; // Link Camera to InputHandler
+        this.renderer = new Renderer(this.canvas, this.player, this.map, this.inputHandler, this.camera);
 
         // 2. Player initial in die Mitte setzen
         this.centerPlayer();
@@ -169,8 +185,13 @@ class Game {
         // PLAYING State
         this.player.update(dt);
         
+        // Kamera Update
+        if (this.map.currentRoom) {
+            this.camera.update(this.player, this.map.currentRoom.width, this.map.currentRoom.height);
+        }
+        
         // Auto-Attack triggern
-        this.player.autoAttack(dt, this.map.getEnemies());
+        this.player.autoAttack(dt, this.map.getEnemies(), this.map);
         
         this.map.update(dt);
         UI.updatePlayerStats(this.player);

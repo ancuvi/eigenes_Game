@@ -1,5 +1,6 @@
 // Player Klasse: Verwaltet Stats, Position und Bewegung
 import { getDistance, pushBack } from './utils.js';
+import { Projectile } from './projectile.js';
 import * as UI from './ui.js';
 
 export class Player {
@@ -61,10 +62,10 @@ export class Player {
         this.vx = 0;
         this.vy = 0;
         
-        // Veraltet durch Joystick, aber für Compat:
         this.targetX = this.x;
         this.targetY = this.y;
         this.isMoving = false;
+        this.moveMode = 'manual'; // 'manual' (Joystick) or 'auto' (Click)
 
         this.isDashing = false;
         this.dashRange = 100;
@@ -75,6 +76,18 @@ export class Player {
         this.interactionTarget = null; // Enemy oder Resource
         this.interactionRange = this.range; // Pixel
         this.attackCooldownTimer = 0;
+        this.weapon = 'sword'; // 'sword', 'wand'
+    }
+    
+    switchWeapon(type) {
+        if (type === 'sword') {
+            this.weapon = 'sword';
+            this.range = 60; // Nahkampf
+        } else if (type === 'wand') {
+            this.weapon = 'wand';
+            this.range = 300; // Fernkampf
+        }
+        this.interactionRange = this.range;
     }
 
     updateAttackCooldown() {
@@ -85,13 +98,15 @@ export class Player {
         this.vx = vx;
         this.vy = vy;
         this.isMoving = (vx !== 0 || vy !== 0);
-        // Dash logik? Vorerst einfach laufen.
+        this.moveMode = 'manual';
     }
 
-    // Für Kompatibilität mit altem Code (OnAttacked, etc)
     setTarget(x, y, targetEntity = null) {
-        // Ignorieren wir für Movement, aber Target setzen wir
+        this.targetX = x - this.width/2;
+        this.targetY = y - this.height/2;
         this.interactionTarget = targetEntity;
+        this.isMoving = true;
+        this.moveMode = 'auto';
     }
 
     update(dt) {
@@ -105,35 +120,41 @@ export class Player {
             this.hp = Math.min(this.maxHp, this.hp + this.hpRegen * dt);
         }
 
-        // Bewegung (Velocity Based)
+        // Bewegung
         if (this.isMoving) {
             const currentSpeed = this.isDashing ? this.dashSpeed : this.speed;
-            this.x += this.vx * currentSpeed * dt;
-            this.y += this.vy * currentSpeed * dt;
             
-            // Bounds Check? Canvas Grenzen
-            // Wird eigentlich im Map-Code handled? Nein, aktuell darf Player rauslaufen (für Room Switch).
-            // Room Switch passiert in Map.loadRoom, aber Trigger ist in Map.switchRoom (Input).
-            // Wenn wir manuell laufen, müssen wir manuell Room Switch triggern oder Bounds checken.
-            // Aber Map.switchRoom wird vom Input aufgerufen.
-            // Also alles gut.
-        }
+            if (this.moveMode === 'manual') {
+                this.x += this.vx * currentSpeed * dt;
+                this.y += this.vy * currentSpeed * dt;
+            } else {
+                // Auto Mode (Click to Move)
+                const dist = getDistance(this.x, this.y, this.targetX, this.targetY);
+                let stopDistance = 2;
+                if (this.interactionTarget) {
+                    stopDistance = this.interactionRange;
+                }
 
-        // Auto-Attack Logic
-        // Wenn wir manuell laufen, greifen wir an, wenn ein Gegner nah ist.
-        // Wir scannen nach Gegnern, wenn kein Interaktionsziel da ist oder das alte tot ist.
-        
-        // Wenn wir uns bewegen, brechen wir fokussierte Interaktion ab, es sei denn wir wollen "Kiting".
-        // Auto-Battler Logic: Attack nearest enemy in range.
-        
-        // Wir brauchen Zugriff auf die Map (Gegner Liste).
-        // update(dt) wird von main.js aufgerufen, wir haben hier keine Map-Referenz direkt, außer wir übergeben sie oder Player hat sie.
-        // Player hat sie nicht.
-        // Wir machen Auto-Attack im main.js oder übergeben map an update.
+                if (dist <= stopDistance) {
+                    this.isMoving = false;
+                } else {
+                    const moveDist = currentSpeed * dt;
+                    const ratio = moveDist / dist;
+                    this.x += (this.targetX - this.x) * ratio;
+                    this.y += (this.targetY - this.y) * ratio;
+                }
+            }
+        } else if (this.interactionTarget && !this.interactionTarget.isDead() && this.moveMode === 'auto') {
+             // Re-Engage logic in auto mode
+             const dist = getDistance(this.x, this.y, this.interactionTarget.x, this.interactionTarget.y);
+             if (dist > this.interactionRange) {
+                 this.isMoving = true; 
+                 this.setTarget(this.interactionTarget.x + this.interactionTarget.width/2, this.interactionTarget.y + this.interactionTarget.height/2, this.interactionTarget);
+             }
+        }
     }
     
-    // Neue Methode für Auto-Attack, aufzurufen von main.js
-    autoAttack(dt, enemies) {
+    autoAttack(dt, enemies, map) {
         if (!enemies) return;
         
         // Suche nächsten Gegner
@@ -143,36 +164,46 @@ export class Player {
         const cx = this.x + this.width/2;
         const cy = this.y + this.height/2;
 
-        enemies.forEach(e => {
-            const ex = e.x + e.width/2;
-            const ey = e.y + e.height/2;
-            const d = getDistance(cx, cy, ex, ey);
-            if (d < minDist) {
+        // Priorisiere Interaktionsziel
+        if (this.interactionTarget && !this.interactionTarget.isDead()) {
+            const d = getDistance(cx, cy, this.interactionTarget.x + this.interactionTarget.width/2, this.interactionTarget.y + this.interactionTarget.height/2);
+            if (d <= this.interactionRange) {
+                nearest = this.interactionTarget;
                 minDist = d;
-                nearest = e;
             }
-        });
+        }
+
+        if (!nearest) {
+            enemies.forEach(e => {
+                const ex = e.x + e.width/2;
+                const ey = e.y + e.height/2;
+                const d = getDistance(cx, cy, ex, ey);
+                if (d < minDist) {
+                    minDist = d;
+                    nearest = e;
+                }
+            });
+        }
         
         if (nearest && minDist <= this.interactionRange) {
              if (this.attackCooldownTimer <= 0) {
-                this.attack(nearest);
+                this.attack(nearest, map);
                 this.attackCooldownTimer = this.attackCooldownMs / 1000;
             }
         }
     }
 
-    interact(target) {
+    interact(target, map) {
         if (target.constructor.name === 'Enemy') {
             // Kampf
             if (this.attackCooldownTimer <= 0) {
-                this.attack(target);
+                this.attack(target, map);
                 this.attackCooldownTimer = this.attackCooldownMs / 1000;
             }
         }
     }
 
-    attack(enemy) {
-        // Krit berechnen
+    attack(enemy, map) {
         let dmg = this.attackPower;
         const roll = Math.random();
         if (roll < this.critChance) {
@@ -182,9 +213,30 @@ export class Player {
             dmg *= 2;
             this.dashBonusReady = false;
         }
-        enemy.takeDamage(dmg, this);
-        pushBack(enemy, this, 20);
-        // console.log(`Player hits ${enemy.name} for ${dmg}`);
+
+        if (this.weapon === 'sword') {
+            // Nahkampf + Knockback
+            enemy.takeDamage(dmg, this);
+            if (!enemy.isBoss) { // Boss ist immun gegen Knockback
+                pushBack(enemy, this, 50); 
+            }
+        } else if (this.weapon === 'wand') {
+            // Fernkampf Projektil
+            if (map) {
+                // Target Mitte
+                const tx = enemy.x + enemy.width/2;
+                const ty = enemy.y + enemy.height/2;
+                const p = new Projectile(
+                    this.x + this.width/2, 
+                    this.y + this.height/2, 
+                    tx, ty, 
+                    400, // Speed
+                    dmg, 
+                    'player'
+                );
+                map.addProjectile(p);
+            }
+        }
     }
 
     takeDamage(amount, attacker = null) {
@@ -196,10 +248,10 @@ export class Player {
     }
 
     onAttacked(attacker) {
-        // Ziel wie bei Klick setzen: zur Gegner-Mitte laufen und kämpfen
-        const targetX = attacker.x + attacker.width / 2;
-        const targetY = attacker.y + attacker.height / 2;
-        this.setTarget(targetX, targetY, attacker);
+        // Bei Angriff Fokus wechseln?
+        // Wenn wir manuell laufen, ignorieren wir das vielleicht.
+        // Aber Target setzen ist okay für Auto-Attack Priority.
+        this.interactionTarget = attacker;
     }
 
     heal(amount) {
