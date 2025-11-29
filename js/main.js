@@ -46,13 +46,17 @@ class Game {
     }
 
     handleResize() {
-        // Setze Canvas-Auflösung auf Fenstergröße
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
+        const container = document.getElementById('game-area');
+        if (container) {
+            this.canvas.width = container.clientWidth;
+            this.canvas.height = container.clientHeight;
+        } else {
+            this.canvas.width = window.innerWidth;
+            this.canvas.height = window.innerHeight;
+        }
         
         console.log(`Resized to ${this.canvas.width}x${this.canvas.height}`);
         
-        // Render sofort einmal, damit man nicht auf nächsten Frame wartet (optional)
         if (!this.isRunning && this.renderer) {
             this.renderer.draw();
         }
@@ -71,8 +75,8 @@ class Game {
         this.mapOverlay = new MapOverlay(this.map);
         this.statsOverlay = new StatsOverlay(this.player);
 
-        // 4. Navigation UI Events binden
-        this.bindNavigation();
+        // 4. Navigation UI Events binden (entfernt, da Canvas-basiert)
+        // this.bindNavigation();
 
         // 5. Start Button binden
         if (this.startBtn) {
@@ -111,23 +115,6 @@ class Game {
         this.player.y = this.canvas.height / 2 - this.player.height / 2;
         this.player.targetX = this.player.x;
         this.player.targetY = this.player.y;
-    }
-
-    bindNavigation() {
-        const navCallback = (direction) => {
-            if (this.gameState !== 'PLAYING') return;
-            
-            this.map.switchRoom(direction);
-            UI.log(`Raum gewechselt: ${direction}`);
-            this.checkRoomClear();
-            if (this.mapOverlay) this.mapOverlay.draw();
-        };
-
-        const ids = ['nav-up', 'nav-down', 'nav-left', 'nav-right'];
-        ids.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('click', () => navCallback(el.dataset.dir));
-        });
     }
 
     toggleUI(show) {
@@ -181,9 +168,14 @@ class Game {
 
         // PLAYING State
         this.player.update(dt);
+        
+        // Auto-Attack triggern
+        this.player.autoAttack(dt, this.map.getEnemies());
+        
         this.map.update(dt);
         UI.updatePlayerStats(this.player);
         this.checkRoomClear();
+        
         if (this.statsOverlay) this.statsOverlay.refresh();
         
         if (this.player.isDead()) {
@@ -214,18 +206,12 @@ class Game {
 
     checkRoomClear() {
         if (this.gameState !== 'PLAYING') return;
-
-        const enemies = this.map.getEnemies();
-        const navOverlay = document.getElementById('nav-overlay');
         
-        if (navOverlay) {
-             // Wenn keine Gegner, zeige Pfeile (falls UI generell an ist)
-             // Wir müssen aufpassen, dass wir display='none' vom toggleUI nicht überschreiben, 
-             // aber toggleUI setzt style auf nav-overlay container.
-             // Hier setzen wir style auf die Pfeile (.nav-arrow).
-             
-             const display = enemies.length === 0 ? 'flex' : 'none';
-             navOverlay.querySelectorAll('.nav-arrow').forEach(a => a.style.display = display);
+        // Canvas-basiertes UI muss nicht aktualisiert werden, 
+        // da Renderer jeden Frame prüft ob Gegner da sind für Pfeile.
+        // Aber wir können hier Map Overlay updaten, falls nötig.
+        if (this.map.getEnemies().length === 0) {
+             // Eventuell Sound abspielen oder so
         }
     }
 }

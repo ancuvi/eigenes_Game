@@ -14,22 +14,32 @@ body {
     height: 100%;
     position: relative;
     background-color: #222;
+    display: flex;
+    flex-direction: column;
 }
 
-/* Canvas füllt den gesamten Container */
+/* Header Area */
+#ui-header {
+    height: 50px;
+    background-color: rgba(0, 0, 0, 0.8);
+    position: relative; /* Für Buttons */
+    flex-shrink: 0;
+    z-index: 10;
+}
+
+/* Canvas füllt den mittleren Bereich */
 #game-area {
     width: 100%;
-    height: 100%;
-    position: absolute;
-    top: 0;
-    left: 0;
+    position: relative;
+    flex-grow: 1; /* Nimmt restlichen Platz */
+    overflow: hidden;
+    background-color: #3b3b3b;
 }
 
 canvas {
     display: block;
     width: 100%;
     height: 100%;
-    background-color: #3b3b3b;
 }
 
 /* Start Screen */
@@ -72,47 +82,55 @@ canvas {
     background: #45a049;
 }
 
-/* Stats als Overlay oben */
+/* Stats im Header */
 #stats-panel {
-    position: absolute;
-    top: 0;
-    left: 0;
+    position: relative;
     width: 100%;
-    padding: 10px 20px;
+    height: 100%;
+    padding: 0 20px;
     box-sizing: border-box;
-    background-color: rgba(0, 0, 0, 0.6);
     display: flex;
-    justify-content: space-between;
-    z-index: 10;
-    pointer-events: none; /* Klicks gehen durch */
+    align-items: center;
+    justify-content: flex-end; /* Rechtsbündig oder verteilt */
+    gap: 20px;
+    color: #fff;
     text-shadow: 1px 1px 2px black;
 }
 
 .stat-item {
     font-weight: bold;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
 }
 
-#stats-panel .stat-item:first-child {
-    margin-left: 140px; /* Platz für Map/Stats Buttons */
-}
-
-/* Log als Overlay unten */
-#combat-log {
+/* Map Button */
+#map-toggle {
     position: absolute;
-    bottom: 0;
-    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 10px;
+    /* Styles übernommen */
+}
+
+#stats-toggle {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 80px;
+}
+
+/* Log Unten */
+#combat-log {
     width: 100%;
-    height: 20%; /* Nimmt untere 20% ein */
-    max-height: 150px;
+    height: 150px; /* Feste Höhe */
+    flex-shrink: 0;
     padding: 10px;
     box-sizing: border-box;
     overflow-y: auto;
     font-size: 14px;
-    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%);
+    background: #111;
+    border-top: 2px solid #333;
     font-family: monospace;
     z-index: 10;
-    pointer-events: auto; /* Scrollen ermöglichen */
 }
 
 /* Navigation Overlay (Pfeile) */
@@ -165,37 +183,17 @@ canvas {
     #combat-log { font-size: 12px; height: 15%; }
 }
 
-/* Map Button */
-#map-toggle {
-    position: absolute;
-    top: 10px;
-    left: 10px;
+/* Buttons (schon definiert oben, nur positionierung entfernt/angepasst) */
+#map-toggle, #stats-toggle {
     z-index: 20;
-    padding: 8px 14px;
+    padding: 6px 12px;
     border: 1px solid #555;
     background: #1f1f1f;
     color: #fff;
     cursor: pointer;
     border-radius: 6px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-}
-
-#map-toggle:hover {
-    background: #2b2b2b;
-}
-
-#stats-toggle {
-    position: absolute;
-    top: 10px;
-    left: 80px;
-    z-index: 20;
-    padding: 8px 14px;
-    border: 1px solid #555;
-    background: #1f1f1f;
-    color: #fff;
-    cursor: pointer;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    font-size: 12px;
 }
 
 #stats-toggle:hover {

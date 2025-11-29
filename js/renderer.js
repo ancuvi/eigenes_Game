@@ -22,6 +22,9 @@ export class Renderer {
         // Grid-Hilfslinien für Tiefe
         this.drawGrid();
 
+        // Wände und Türen zeichnen (Dungeon-Struktur)
+        this.drawWallsAndDoors();
+
         // 3. Enemies
         const enemies = this.map.getEnemies();
         if (enemies) {
@@ -73,6 +76,81 @@ export class Renderer {
             this.ctx.moveTo(0, y);
             this.ctx.lineTo(this.canvas.width, y);
         }
+        this.ctx.stroke();
+    }
+
+    drawWallsAndDoors() {
+        if (!this.map.currentRoom) return;
+
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        const wallThick = 20;
+        const doorSize = 100;
+        const isClear = this.map.currentRoom.enemies.length === 0;
+        const layout = this.map.currentRoom.layout;
+
+        // Wände (Grün)
+        this.ctx.fillStyle = '#2e7d32'; // Dunkelgrün
+        
+        // Top Wall (Left part & Right part)
+        this.ctx.fillRect(0, 0, w, wallThick);
+        // Bottom Wall
+        this.ctx.fillRect(0, h - wallThick, w, wallThick);
+        // Left Wall
+        this.ctx.fillRect(0, 0, wallThick, h);
+        // Right Wall
+        this.ctx.fillRect(w - wallThick, 0, wallThick, h);
+
+        // Türen / Löcher in den Wänden
+        // Wir zeichnen einfach "Boden" über die Wand, wenn eine Tür da ist
+        this.ctx.fillStyle = '#2a2a2a'; // Floor color
+
+        if (layout.neighbors.up) {
+            this.ctx.fillRect(w/2 - doorSize/2, 0, doorSize, wallThick);
+            if (isClear) this.drawArrow(w/2, wallThick + 20, 'up');
+        }
+        if (layout.neighbors.down) {
+            this.ctx.fillRect(w/2 - doorSize/2, h - wallThick, doorSize, wallThick);
+            if (isClear) this.drawArrow(w/2, h - wallThick - 20, 'down');
+        }
+        if (layout.neighbors.left) {
+            this.ctx.fillRect(0, h/2 - doorSize/2, wallThick, doorSize);
+            if (isClear) this.drawArrow(wallThick + 20, h/2, 'left');
+        }
+        if (layout.neighbors.right) {
+            this.ctx.fillRect(w - wallThick, h/2 - doorSize/2, wallThick, doorSize);
+            if (isClear) this.drawArrow(w - wallThick - 20, h/2, 'right');
+        }
+    }
+
+    drawArrow(x, y, dir) {
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        this.ctx.beginPath();
+        const s = 15;
+        if (dir === 'up') {
+            this.ctx.moveTo(x, y - s);
+            this.ctx.lineTo(x - s, y + s);
+            this.ctx.lineTo(x + s, y + s);
+        } else if (dir === 'down') {
+            this.ctx.moveTo(x, y + s);
+            this.ctx.lineTo(x - s, y - s);
+            this.ctx.lineTo(x + s, y - s);
+        } else if (dir === 'left') {
+            this.ctx.moveTo(x - s, y);
+            this.ctx.lineTo(x + s, y - s);
+            this.ctx.lineTo(x + s, y + s);
+        } else if (dir === 'right') {
+            this.ctx.moveTo(x + s, y);
+            this.ctx.lineTo(x - s, y - s);
+            this.ctx.lineTo(x - s, y + s);
+        }
+        this.ctx.fill();
+        
+        // Pulsierender Effekt
+        const time = Date.now() / 200;
+        const offset = Math.sin(time) * 5;
+        this.ctx.strokeStyle = `rgba(255, 255, 255, ${0.3 + Math.sin(time)*0.2})`;
+        this.ctx.lineWidth = 2;
         this.ctx.stroke();
     }
 

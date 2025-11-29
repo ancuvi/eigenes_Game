@@ -33,48 +33,91 @@ export class MapOverlay {
     draw() {
         if (!this.ctx || !this.canvas) return;
 
-        const rooms = Object.entries(this.map.grid).map(([key, val]) => {
+        // Wir wollen auch unbesuchte Nachbarn anzeigen
+        const knownRooms = {}; // Key: "x,y", Value: {x, y, status: 'visited' | 'seen'}
+        
+        // 1. Besuchte Räume hinzufügen
+        Object.entries(this.map.grid).forEach(([key, val]) => {
             const [x, y] = key.split(',').map(Number);
-            return { x, y, visited: val.visited };
+            knownRooms[key] = { x, y, status: 'visited' };
+            
+            // 2. Nachbarn prüfen (aus Dungeon Layout)
+            // val.layout ist in map.js gespeichert
+            if (val.layout && val.layout.neighbors) {
+                if (val.layout.neighbors.up) knownRooms[`${x},${y+1}`] = knownRooms[`${x},${y+1}`] || { x, y: y+1, status: 'seen' };
+                if (val.layout.neighbors.down) knownRooms[`${x},${y-1}`] = knownRooms[`${x},${y-1}`] || { x, y: y-1, status: 'seen' };
+                if (val.layout.neighbors.left) knownRooms[`${x-1},${y}`] = knownRooms[`${x-1},${y}`] || { x: x-1, y, status: 'seen' };
+                if (val.layout.neighbors.right) knownRooms[`${x+1},${y}`] = knownRooms[`${x+1},${y}`] || { x: x+1, y, status: 'seen' };
+            }
         });
-        if (rooms.length === 0) return;
+        
+        const roomList = Object.values(knownRooms);
+        if (roomList.length === 0) return;
 
-        const minX = Math.min(...rooms.map(r => r.x));
-        const maxX = Math.max(...rooms.map(r => r.x));
-        const minY = Math.min(...rooms.map(r => r.y));
-        const maxY = Math.max(...rooms.map(r => r.y));
+        const minX = Math.min(...roomList.map(r => r.x));
+        const maxX = Math.max(...roomList.map(r => r.x));
+        const minY = Math.min(...roomList.map(r => r.y));
+        const maxY = Math.max(...roomList.map(r => r.y));
 
         const spanX = maxX - minX + 1;
         const spanY = maxY - minY + 1;
         const padding = 20;
+        // Zelle quadratisch halten
         const cellSize = Math.min(
             (this.canvas.width - padding * 2) / spanX,
             (this.canvas.height - padding * 2) / spanY,
-            60
+            40 // Max Cell Size etwas kleiner, da Dungeon größer sein kann
         );
+        
+        // Zentrieren
+        const offsetX = (this.canvas.width - (spanX * cellSize)) / 2;
+        const offsetY = (this.canvas.height - (spanY * cellSize)) / 2;
 
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = '#181818';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        rooms.forEach(room => {
-            const sx = padding + (room.x - minX) * cellSize;
+        roomList.forEach(room => {
+            const sx = offsetX + (room.x - minX) * cellSize;
             // y invertieren, damit "up" oben angezeigt wird
-            const sy = padding + (maxY - room.y) * cellSize;
+            const sy = offsetY + (maxY - room.y) * cellSize;
 
             // Rahmen
             this.ctx.strokeStyle = '#333';
-            this.ctx.lineWidth = 2;
+            this.ctx.lineWidth = 1;
             this.ctx.strokeRect(sx, sy, cellSize, cellSize);
 
-            if (room.visited) {
-                this.ctx.fillStyle = '#4a4a4a';
-                this.ctx.fillRect(sx, sy, cellSize, cellSize);
+            if (room.status === 'visited') {
+                this.ctx.fillStyle = '#555';
+                this.ctx.fillRect(sx + 2, sy + 2, cellSize - 4, cellSize - 4);
+                
+                // Türen andeuten? (Optional, aber nett)
+                
+            } else if (room.status === 'seen') {
+                this.ctx.fillStyle = '#222'; // Dunkler für unbesucht
+                this.ctx.fillRect(sx + 2, sy + 2, cellSize - 4, cellSize - 4);
+                
+                this.ctx.fillStyle = '#444';
+                this.ctx.font = '10px monospace';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText('?', sx + cellSize/2, sy + cellSize/2 + 3);
             }
 
             if (room.x === this.map.currentGridX && room.y === this.map.currentGridY) {
-                this.ctx.fillStyle = '#43a047';
-                this.ctx.fillRect(sx + 4, sy + 4, cellSize - 8, cellSize - 8);
+                this.ctx.fillStyle = '#43a047'; // Player Color
+                this.ctx.fillRect(sx + 6, sy + 6, cellSize - 12, cellSize - 12);
+            }
+            
+            // Boss Icon (falls besucht oder seen) - Optional
+            // Dazu müssten wir wissen ob es Boss ist. In `map.js` loadRoom setzen wir `layout` in grid.
+            // Aber für 'seen' rooms haben wir nur Koordinaten.
+            // Wir könnten map.dungeonLayout abfragen.
+            const layout = this.map.dungeonLayout[`${room.x},${room.y}`];
+            if (layout && layout.type === 'boss') {
+                this.ctx.fillStyle = '#e53935';
+                this.ctx.beginPath();
+                this.ctx.arc(sx + cellSize/2, sy + cellSize/2, 4, 0, Math.PI*2);
+                this.ctx.fill();
             }
         });
 

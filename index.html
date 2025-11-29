@@ -19,32 +19,26 @@
             <button id="start-btn">Start</button>
         </div>
 
-        <!-- Map Toggle Button -->
-        <button id="map-toggle">Map</button>
-        <button id="stats-toggle">Stats</button>
+        <!-- Header Area (Stats + Buttons) -->
+        <div id="ui-header">
+            <!-- Map Toggle Button -->
+            <button id="map-toggle">Map</button>
+            <button id="stats-toggle">Stats</button>
 
-        <!-- Stats Panel -->
-        <div id="stats-panel">
-            <div class="stat-item">LVL: <span id="stat-level">1</span></div>
-            <div class="stat-item">HP: <span id="stat-hp">100</span>/<span id="stat-max-hp">100</span></div>
-            <div class="stat-item">GOLD: <span id="stat-gold">0</span></div>
-        </div>
-
-        <!-- Spielbereich (Canvas + Overlays) -->
-        <div id="game-area">
-            <!-- Width/Height wird via JS gesetzt -->
-            <canvas id="gameCanvas"></canvas>
-            
-            <!-- Navigation Overlays (klickbare Bereiche/Pfeile) -->
-            <div id="nav-overlay">
-                <div class="nav-arrow" id="nav-up" data-dir="up">⬆️</div>
-                <div class="nav-arrow" id="nav-down" data-dir="down">⬇️</div>
-                <div class="nav-arrow" id="nav-left" data-dir="left">⬅️</div>
-                <div class="nav-arrow" id="nav-right" data-dir="right">➡️</div>
+            <!-- Stats Panel -->
+            <div id="stats-panel">
+                <div class="stat-item">LVL: <span id="stat-level">1</span></div>
+                <div class="stat-item">HP: <span id="stat-hp">100</span>/<span id="stat-max-hp">100</span></div>
+                <div class="stat-item">GOLD: <span id="stat-gold">0</span></div>
             </div>
         </div>
 
-        <!-- Combat Log (optional, vielleicht kleiner) -->
+        <!-- Spielbereich (Canvas) - Füllt den Rest -->
+        <div id="game-area">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+
+        <!-- Combat Log - Unten fest -->
         <div id="combat-log">
             <div>Willkommen in der Pixel-Welt!</div>
         </div>

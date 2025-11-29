@@ -58,9 +58,14 @@ export class Player {
         
         // Bewegung
         this.speed = 200; // Pixel pro Sekunde
+        this.vx = 0;
+        this.vy = 0;
+        
+        // Veraltet durch Joystick, aber für Compat:
         this.targetX = this.x;
         this.targetY = this.y;
         this.isMoving = false;
+
         this.isDashing = false;
         this.dashRange = 100;
         this.dashSpeed = 480;
@@ -75,29 +80,18 @@ export class Player {
     updateAttackCooldown() {
         this.attackCooldownMs = 1000 / this.attackRate;
     }
+    
+    setMovement(vx, vy) {
+        this.vx = vx;
+        this.vy = vy;
+        this.isMoving = (vx !== 0 || vy !== 0);
+        // Dash logik? Vorerst einfach laufen.
+    }
 
+    // Für Kompatibilität mit altem Code (OnAttacked, etc)
     setTarget(x, y, targetEntity = null) {
-        // Zielkoordinaten zentrieren (Mausklick ist Punkt, Player ist Box)
-        this.targetX = x - this.width / 2;
-        this.targetY = y - this.height / 2;
+        // Ignorieren wir für Movement, aber Target setzen wir
         this.interactionTarget = targetEntity;
-        this.isMoving = true;
-
-        // Dash, falls nah genug am Gegner
-        if (targetEntity) {
-            const myCx = this.x + this.width / 2;
-            const myCy = this.y + this.height / 2;
-            const tx = targetEntity.x + targetEntity.width / 2;
-            const ty = targetEntity.y + targetEntity.height / 2;
-            const dist = getDistance(myCx, myCy, tx, ty);
-            if (dist <= this.dashRange) {
-                this.isDashing = true;
-                this.dashBonusReady = true;
-            }
-        } else {
-            this.isDashing = false;
-            this.dashBonusReady = false;
-        }
     }
 
     update(dt) {
@@ -111,38 +105,59 @@ export class Player {
             this.hp = Math.min(this.maxHp, this.hp + this.hpRegen * dt);
         }
 
-        // Bewegung
+        // Bewegung (Velocity Based)
         if (this.isMoving) {
-            const dist = getDistance(this.x, this.y, this.targetX, this.targetY);
+            const currentSpeed = this.isDashing ? this.dashSpeed : this.speed;
+            this.x += this.vx * currentSpeed * dt;
+            this.y += this.vy * currentSpeed * dt;
             
-            // Wenn wir nah genug am Ziel sind (oder am Interaktionsziel)
-            let stopDistance = 2;
-            if (this.interactionTarget) {
-                stopDistance = this.interactionRange;
-            }
+            // Bounds Check? Canvas Grenzen
+            // Wird eigentlich im Map-Code handled? Nein, aktuell darf Player rauslaufen (für Room Switch).
+            // Room Switch passiert in Map.loadRoom, aber Trigger ist in Map.switchRoom (Input).
+            // Wenn wir manuell laufen, müssen wir manuell Room Switch triggern oder Bounds checken.
+            // Aber Map.switchRoom wird vom Input aufgerufen.
+            // Also alles gut.
+        }
 
-            if (dist <= stopDistance) {
-                this.isMoving = false;
-                this.isDashing = false;
-                // Wenn wir ein Target haben, und in Range sind -> Aktion ausführen
-                if (this.interactionTarget) {
-                    this.interact(this.interactionTarget);
-                }
-            } else {
-                // Bewegen
-                const currentSpeed = this.isDashing ? this.dashSpeed : this.speed;
-                const moveDist = currentSpeed * dt;
-                const ratio = moveDist / dist;
-                
-                this.x += (this.targetX - this.x) * ratio;
-                this.y += (this.targetY - this.y) * ratio;
+        // Auto-Attack Logic
+        // Wenn wir manuell laufen, greifen wir an, wenn ein Gegner nah ist.
+        // Wir scannen nach Gegnern, wenn kein Interaktionsziel da ist oder das alte tot ist.
+        
+        // Wenn wir uns bewegen, brechen wir fokussierte Interaktion ab, es sei denn wir wollen "Kiting".
+        // Auto-Battler Logic: Attack nearest enemy in range.
+        
+        // Wir brauchen Zugriff auf die Map (Gegner Liste).
+        // update(dt) wird von main.js aufgerufen, wir haben hier keine Map-Referenz direkt, außer wir übergeben sie oder Player hat sie.
+        // Player hat sie nicht.
+        // Wir machen Auto-Attack im main.js oder übergeben map an update.
+    }
+    
+    // Neue Methode für Auto-Attack, aufzurufen von main.js
+    autoAttack(dt, enemies) {
+        if (!enemies) return;
+        
+        // Suche nächsten Gegner
+        let nearest = null;
+        let minDist = Infinity;
+        
+        const cx = this.x + this.width/2;
+        const cy = this.y + this.height/2;
+
+        enemies.forEach(e => {
+            const ex = e.x + e.width/2;
+            const ey = e.y + e.height/2;
+            const d = getDistance(cx, cy, ex, ey);
+            if (d < minDist) {
+                minDist = d;
+                nearest = e;
             }
-        } else if (this.interactionTarget && !this.interactionTarget.isDead()) {
-            // Wenn wir schon stehen und ein Target haben -> Weiter kämpfen
-             const dist = getDistance(this.x, this.y, this.interactionTarget.x, this.interactionTarget.y);
-             if (dist <= this.interactionRange) {
-                 this.interact(this.interactionTarget);
-             }
+        });
+        
+        if (nearest && minDist <= this.interactionRange) {
+             if (this.attackCooldownTimer <= 0) {
+                this.attack(nearest);
+                this.attackCooldownTimer = this.attackCooldownMs / 1000;
+            }
         }
     }
 
