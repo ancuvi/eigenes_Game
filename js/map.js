@@ -6,6 +6,7 @@ import { randomNumber, checkCollision } from './utils.js';
 import { BalanceManager } from './balanceManager.js';
 import * as UI from './ui.js';
 import PATTERN_REGISTRY, { makeFallbackPattern, DOOR_MASK, maskFromNeighbors } from './roomPatterns/index.js';
+import { RoomDistributionManager, FLOOR_CONFIG } from './roomDistributionManager.js';
 
 // Utility: Fisher-Yates Shuffle
 function shuffleInPlace(arr) {
@@ -46,7 +47,11 @@ function spawnEnemiesInRoom(spawnPointsWorld, difficulty, stage, floor, forcedCo
 // Pattern selection by neighbor mask with fallback carving
 function getRoomForGridPosition(dungeonLayout, gx, gy, typeOverride = null) {
     const layout = dungeonLayout[`${gx},${gy}`];
-    const type = typeOverride || (layout.type === 'boss' ? 'Boss' : layout.type === 'start' ? 'Start' : 'Normal');
+    const type = typeOverride
+        || (layout.type === 'boss' ? 'Boss'
+        : layout.type === 'start' ? 'Start'
+        : layout.type === 'treasure' ? 'Treasure'
+        : 'Normal');
     const requiredMask = maskFromNeighbors(layout.neighbors);
 
     const candidates = PATTERN_REGISTRY.filter(
@@ -68,9 +73,11 @@ export class GameMap {
         this.currentGridX = 0;
         this.currentGridY = 0;
         
-        this.targetRoomCount = 15;
+        this.targetRoomCount = FLOOR_CONFIG.ROOMS_PER_FLOOR + 2; // Start + 8 weitere + Boss-platzhalter
         this.stage = 1;
         this.floor = 1;
+        this.roomDistributor = new RoomDistributionManager();
+        this.onStageComplete = null; // callback vom Game
     }
     
     setStage(stage, floor) {
@@ -83,7 +90,7 @@ export class GameMap {
         this.grid = {};
         this.dungeonLayout = {};
         
-        this.dungeonLayout['0,0'] = { type: 'start', distance: 0, neighbors: {} };
+            this.dungeonLayout['0,0'] = { type: 'start', category: 'Start', distance: 0, neighbors: {} };
         
         let queue = [{x: 0, y: 0}];
         let roomCount = 1;
@@ -154,8 +161,38 @@ export class GameMap {
             this.dungeonLayout[bossKey].type = 'boss';
             console.log(`Boss Raum gesetzt bei ${bossKey} (Distanz: ${maxDist})`);
         }
+
+        // Raum-Typen pro Floor verteilen (Deck-System)
+        this.assignRoomTypes();
         
         console.log(`Dungeon generiert: ${roomCount} Räume.`);
+    }
+
+    assignRoomTypes() {
+        const deck = this.roomDistributor.generateFloorRoomTypes(this.stage, this.floor);
+        const normals = Object.entries(this.dungeonLayout).filter(([k, v]) => v.type !== 'start' && v.type !== 'boss');
+        if (normals.length === 0) return;
+        const pool = [...deck];
+        // Falls weniger Räume als Pool-Einträge vorhanden sind, trimmen
+        if (pool.length > normals.length) pool.length = normals.length;
+
+        // Shuffle normals für zufällige Zuordnung
+        pool.sort(() => Math.random() - 0.5);
+        normals.sort(() => Math.random() - 0.5);
+
+        normals.forEach(([key, room], idx) => {
+            const entry = pool[idx % pool.length];
+            if (!entry) return;
+            room.category = entry.type; // Combat / Treasure / Event / Empty
+            if (entry.type === 'Combat') {
+                room.type = 'normal';
+                room.combatDifficulty = this.roomDistributor.drawDifficulty(this.stage);
+            } else if (entry.type === 'Treasure') {
+                room.type = 'treasure';
+            } else if (entry.type === 'Event' || entry.type === 'Empty') {
+                room.type = 'normal';
+            }
+        });
     }
     
     calculateDistances() {
@@ -203,27 +240,22 @@ export class GameMap {
             const projectiles = [];
             const items = [];
 
-            // Optional Secret Roll (nur auf normale Räume)
-            const neighborCount = Object.keys(layout.neighbors).length;
-            let typeOverride = null;
-            if (layout.type !== 'start' && layout.type !== 'boss' && neighborCount === 1 && Math.random() < 0.1) {
-                UI.log('Du hast einen versteckten Raum gefunden!', '#ffd700');
-                typeOverride = 'Secret';
-            }
+            const isTreasure = layout.type === 'treasure';
+            const patternTypeOverride = isTreasure ? 'Treasure' : null;
 
-            const pattern = getRoomForGridPosition(this.dungeonLayout, gx, gy, typeOverride);
+            const pattern = getRoomForGridPosition(this.dungeonLayout, gx, gy, patternTypeOverride);
             UI.log(`Pattern: ${pattern.id} (mask ${pattern.doorMask})`, '#999999');
             if (pattern.type === 'Start') UI.log('Ein sicherer Ort.');
             if (pattern.type === 'Boss') UI.log('BOSS RAUM! Mach dich bereit!', '#ff0000');
 
-            const forceNoEnemies = (pattern.type === 'Start' || pattern.type === 'Secret');
+            const forceNoEnemies = (pattern.type === 'Start' || pattern.type === 'Treasure' || layout.category === 'Event' || layout.category === 'Empty');
             const parsed = this.parsePattern(pattern, forceNoEnemies);
 
             let enemies = [];
             if (!forceNoEnemies) {
-                const baseCount = this.pickEnemyCount();
-                const difficulty = difficultyFromCount(baseCount);
-                enemies = spawnEnemiesInRoom(parsed.spawnPointsWorld, difficulty, this.stage, this.floor, baseCount);
+                const difficulty = layout.combatDifficulty || 'Standard';
+                const forcedCountMap = { Easy: 2, Standard: 3, Hard: 4 };
+                enemies = spawnEnemiesInRoom(parsed.spawnPointsWorld, difficulty, this.stage, this.floor, forcedCountMap[difficulty]);
                 if (enemies.length > 0) UI.log(`${enemies.length} Gegner lauern hier.`);
             }
             
@@ -238,7 +270,9 @@ export class GameMap {
                 height: parsed.roomH,
                 doorMask: pattern.doorMask,
                 patternId: pattern.id,
-                patternType: pattern.type
+                patternType: pattern.type,
+                category: layout.category,
+                combatDifficulty: layout.combatDifficulty
             };
         }
 
@@ -400,6 +434,9 @@ export class GameMap {
                 UI.log(`${e.name} wurde besiegt! +${e.goldReward} Gold, +${expReward} EXP.`, '#90ee90');
                 
                 this.trySpawnItem(e); // Pass Enemy for rank/loot logic
+                if (e.rank === 'boss') {
+                    this.spawnHoleToNextFloor(e.x, e.y);
+                }
 
                 if (this.player.interactionTarget === e) {
                     this.player.interactionTarget = null;
@@ -444,6 +481,12 @@ export class GameMap {
         }
     }
 
+    spawnHoleToNextFloor(x, y) {
+        const item = new Item(x, y, 'next_floor');
+        if (this.currentRoom.items) this.currentRoom.items.push(item);
+        UI.log('Ein Loch zum nächsten Floor erscheint!', '#00bfff');
+    }
+
     pickupItem(item) {
         if (item.type === 'potion_hp') {
             this.player.heal(30);
@@ -454,6 +497,33 @@ export class GameMap {
         } else if (item.type === 'weapon_wand') {
             this.player.switchWeapon('wand');
             UI.log("Zauberstab ausgerüstet!", "#00ffff");
+        } else if (item.type === 'next_floor') {
+            this.advanceFloor();
+            return;
+        }
+    }
+
+    advanceFloor() {
+        this.floor += 1;
+        if (this.floor > FLOOR_CONFIG.FLOORS_PER_STAGE) {
+            const completedStage = this.stage;
+            this.floor = 1;
+            this.stage = Math.min(this.stage + 1, 5);
+            UI.log(`Stage ${completedStage} abgeschlossen!`, '#ffd700');
+            if (this.onStageComplete) this.onStageComplete(completedStage);
+            return;
+        }
+
+        UI.log(`Weiter zu Floor ${this.floor} in Stage ${this.stage}`, '#00bfff');
+        this.grid = {};
+        this.dungeonLayout = {};
+        this.currentRoom = null;
+        this.currentGridX = 0;
+        this.currentGridY = 0;
+        this.loadRoom(0, 0);
+        if (this.currentRoom) {
+            this.player.x = this.currentRoom.width / 2 - this.player.width / 2;
+            this.player.y = this.currentRoom.height / 2 - this.player.height / 2;
         }
     }
 

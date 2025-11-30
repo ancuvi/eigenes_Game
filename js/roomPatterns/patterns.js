@@ -106,7 +106,7 @@ const PATTERN_REGISTRY = [
     ...mapLegacy(THREE_DOORS, THREE_DOOR_MASKS, 'Normal', '3door'),
     ...mapLegacy(FOUR_DOORS, [DOOR_MASK.NORTH | DOOR_MASK.EAST | DOOR_MASK.SOUTH | DOOR_MASK.WEST], 'Normal', '4door'),
     ...mapLegacy(BOSS, ALL_MASKS, 'Boss', 'boss'),
-    ...mapLegacy(SECRET, ALL_MASKS, 'Secret', 'secret'),
+    ...mapLegacy(SECRET, ALL_MASKS, 'Treasure', 'treasure'),
     ...mapLegacy(ONE_DOOR, ONE_DOOR_MASKS, 'Start', 'start')
 ];
 

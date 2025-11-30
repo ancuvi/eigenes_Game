@@ -16,6 +16,7 @@ class Game {
 
         this.player = new Player();
         this.map = new GameMap(this.player, this.canvas); 
+        this.map.onStageComplete = (stage) => this.handleStageComplete(stage);
         
         // InputHandler nur aktivieren, wenn Spiel läuft? 
         // Aktuell fängt er Events auf dem Canvas ab. Im Start-Screen ignorieren wir das einfach im Update.
@@ -36,6 +37,8 @@ class Game {
         // Progression
         this.currentStage = 1;
         this.currentFloor = 1;
+        this.selectedStage = 1;
+        this.unlockedStage = parseInt(localStorage.getItem('unlockedStage') || '1', 10);
 
         // State Management
         this.gameState = 'START'; // 'START' oder 'PLAYING'
@@ -44,6 +47,7 @@ class Game {
         // UI Elements
         this.startScreen = document.getElementById('start-screen');
         this.startBtn = document.getElementById('start-btn');
+        this.stageButtons = Array.from(document.querySelectorAll('.stage-btn'));
         this.uiElements = [
             document.getElementById('map-toggle'),
             document.getElementById('stats-toggle'),
@@ -103,6 +107,7 @@ class Game {
         if (this.startBtn) {
             this.startBtn.addEventListener('click', () => this.startGame());
         }
+        this.bindStageButtons();
         
         // Auto Button
         const autoBtn = document.getElementById('auto-btn');
@@ -129,7 +134,14 @@ class Game {
         this.toggleUI(true);
         
         // Map Progression setzen
+        this.currentStage = this.selectedStage;
+        this.currentFloor = 1;
         this.map.setStage(this.currentStage, this.currentFloor);
+        this.map.grid = {};
+        this.map.dungeonLayout = {};
+        this.map.currentRoom = null;
+        this.map.currentGridX = 0;
+        this.map.currentGridY = 0;
 
         // Map laden (Gegner spawnen) falls noch leer
         if (!this.map.currentRoom) {
@@ -162,6 +174,43 @@ class Game {
         // Nav Overlay braucht spezielle Behandlung, da es flex ist im CSS
         // Wenn wir style.display = '' setzen, greift CSS #nav-overlay { ... }
         // Das passt.
+    }
+
+    bindStageButtons() {
+        if (!this.stageButtons || this.stageButtons.length === 0) return;
+        this.stageButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const s = parseInt(btn.dataset.stage, 10);
+                if (s > this.unlockedStage) return;
+                this.selectedStage = s;
+                this.updateStageButtons();
+            });
+        });
+        this.updateStageButtons();
+    }
+
+    updateStageButtons() {
+        this.stageButtons.forEach(btn => {
+            const s = parseInt(btn.dataset.stage, 10);
+            const locked = s > this.unlockedStage;
+            btn.disabled = locked;
+            btn.style.display = locked ? 'none' : '';
+            btn.classList.toggle('active', s === this.selectedStage);
+        });
+    }
+
+    handleStageComplete(stage) {
+        const newlyUnlocked = Math.min(stage + 1, 5);
+        if (newlyUnlocked > this.unlockedStage) {
+            this.unlockedStage = newlyUnlocked;
+            localStorage.setItem('unlockedStage', String(this.unlockedStage));
+        }
+        this.selectedStage = Math.min(this.unlockedStage, stage + 1);
+        this.gameState = 'START';
+        this.toggleUI(false);
+        if (this.startScreen) this.startScreen.classList.remove('hidden');
+        this.updateStageButtons();
+        UI.log(`Stage ${stage} abgeschlossen! Stage ${this.unlockedStage} freigeschaltet.`, '#ffd700');
     }
 
     gameLoop(timestamp) {
