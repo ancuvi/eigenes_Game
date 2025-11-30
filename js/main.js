@@ -158,12 +158,8 @@ class Game {
         // In-Game Bag
         if (this.bagBtn) {
             this.bagBtn.addEventListener('click', () => {
-                this.renderInventory();
+                this.renderInventory(this.player.runLoot, true);
                 this.toggleModal(this.inventoryModal, true);
-                // Pause game logic? Or keep running? 
-                // Currently overlays cover screen but input logic might persist.
-                // Should probably pause input handling or game loop.
-                // For simplicity, game loop continues but you can't see.
             });
         }
 
@@ -201,12 +197,34 @@ class Game {
         }
     }
 
-    renderInventory() {
-        this.renderEquipment(); // Refresh slots too
+    renderInventory(source = null, viewOnly = false) {
+        const inv = source || SaveManager.getInventory();
+        const equipmentPanel = document.getElementById('equipment-panel');
+        const actionBtn = this.actionBtn;
+        const mergeBtn = document.getElementById('merge-btn');
+        const modalHeader = this.inventoryModal.querySelector('h2');
+
+        if (viewOnly) {
+            equipmentPanel.style.display = 'none';
+            actionBtn.style.display = 'none';
+            mergeBtn.style.display = 'none';
+            modalHeader.textContent = "Current Run Loot";
+        } else {
+            equipmentPanel.style.display = 'flex';
+            actionBtn.style.display = 'inline-block';
+            mergeBtn.style.display = 'inline-block';
+            modalHeader.textContent = "Inventory & Merge";
+            this.renderEquipment();
+        }
         
         this.inventoryGrid.innerHTML = '';
-        const inv = SaveManager.getInventory();
         
+        // If empty
+        if (Object.keys(inv).length === 0) {
+            this.inventoryGrid.innerHTML = '<div style="padding:20px; color:#888;">Empty</div>';
+            return;
+        }
+
         for (const itemId in inv) {
             const def = ITEM_DEFINITIONS[itemId];
             if (!def) continue;
@@ -229,12 +247,33 @@ class Game {
                     // Select Card
                     document.querySelectorAll('.item-card').forEach(c => c.classList.remove('selected'));
                     card.classList.add('selected');
-                    this.selectItem(itemId, rarity, count);
+                    
+                    if (!viewOnly) {
+                        this.selectItem(itemId, rarity, count);
+                    } else {
+                        // View Only Details (no actions)
+                        this.selectItemViewOnly(itemId, rarity, count);
+                    }
                 });
                 
                 this.inventoryGrid.appendChild(card);
             }
         }
+    }
+
+    selectItemViewOnly(itemId, rarity, count) {
+        const def = ITEM_DEFINITIONS[itemId];
+        const dummyItem = new Item(0, 0, itemId);
+        dummyItem.rarity = rarity;
+        const stats = dummyItem.getStats();
+        
+        let statText = `<strong class="text-rarity-${rarity}">${def.name}</strong> <span class="text-rarity-${rarity}">(${rarity})</span><br>`;
+        statText += `<small>${def.set} Set</small><br>`;
+        statText += `Count: ${count}<br><br>`;
+        for (const key in stats) {
+            statText += `${key}: ${stats[key]}<br>`;
+        }
+        document.getElementById('selected-item-info').innerHTML = statText;
     }
 
     renderEquipment() {

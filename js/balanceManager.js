@@ -72,13 +72,13 @@ const LOOT_TABLES = {
         { stage: 5, weights: { grey: 0.00, green: 0.10, blue: 0.50, purple: 0.30, gold: 0.10 } }
     ],
     TREASURE: [
-        // Treasure Chests (Based on Image 4)
-        // Missing prob assumed Grey
+        // Treasure Chests (Updated from Tabelle4)
+        // Grey calculated as remainder to 1.0
         { stage: 1, weights: { grey: 0.40, green: 0.40, blue: 0.18, purple: 0.02, gold: 0.00 } },
         { stage: 2, weights: { grey: 0.35, green: 0.35, blue: 0.25, purple: 0.05, gold: 0.00 } },
-        { stage: 3, weights: { grey: 0.20, green: 0.30, blue: 0.30, purple: 0.08, gold: 0.00 } }, // Correction needed? Image just shows 3 cols
-        { stage: 4, weights: { grey: 0.10, green: 0.25, blue: 0.35, purple: 0.10, gold: 0.00 } },
-        { stage: 5, weights: { grey: 0.05, green: 0.20, blue: 0.40, purple: 0.15, gold: 0.00 } }
+        { stage: 3, weights: { grey: 0.32, green: 0.30, blue: 0.30, purple: 0.08, gold: 0.00 } },
+        { stage: 4, weights: { grey: 0.30, green: 0.25, blue: 0.35, purple: 0.10, gold: 0.00 } },
+        { stage: 5, weights: { grey: 0.25, green: 0.20, blue: 0.40, purple: 0.15, gold: 0.00 } }
     ]
 };
 
@@ -95,9 +95,12 @@ export class BalanceManager {
                  (1 + CONSTANTS.HP_STAGE_FACTOR * sIdx) * 
                  (1 + CONSTANTS.HP_FLOOR_FACTOR * fIdx);
 
-        let dmg = CONSTANTS.BASE_ENEMY_DMG * 
-                  (1 + CONSTANTS.DMG_STAGE_FACTOR * sIdx) * 
-                  (1 + CONSTANTS.DMG_FLOOR_FACTOR * fIdx);
+        // Reverse-Engineered Formula from Spreadsheet:
+        // DMG scales with HP, FloorFactor, and half of StageFactor
+        // DMG = (HP / 4) * (1 + DMG_FLOOR * f) * (1 + DMG_STAGE/2 * s)
+        let dmg = (hp / 4) * 
+                  (1 + CONSTANTS.DMG_FLOOR_FACTOR * fIdx) * 
+                  (1 + (CONSTANTS.DMG_STAGE_FACTOR * 0.5) * sIdx);
 
         if (isBoss) {
             hp *= CONSTANTS.BOSS_HP_MULT;
@@ -165,7 +168,7 @@ export class BalanceManager {
         const rand = Math.random();
         let sum = 0;
         
-        const rarities = ['grey', 'green', 'blue', 'purple', 'gold'];
+        const rarities = ['grey', 'green', 'blue', 'purple', 'gold', 'red'];
         
         for (let r of rarities) {
             if (weights[r]) {

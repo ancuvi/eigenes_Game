@@ -76,6 +76,9 @@ export class Player {
             sellsword: { stacks: 0 },
             assassinDodge: { stacks: 0, timer: 0 }
         };
+        
+        // Loot collected in current run
+        this.runLoot = {}; 
 
         // Position & Größe
         this.width = 40;
@@ -111,6 +114,16 @@ export class Player {
         this.weapon = 'fist'; // Default weapon
     }
     
+    addLoot(itemId, rarity) {
+        if (!this.runLoot[itemId]) {
+            this.runLoot[itemId] = {};
+        }
+        if (!this.runLoot[itemId][rarity]) {
+            this.runLoot[itemId][rarity] = 0;
+        }
+        this.runLoot[itemId][rarity]++;
+    }
+
     equipItem(item) {
         const def = ITEM_DEFINITIONS[item.type];
         if (!def) return;
@@ -828,5 +841,6 @@ export class Player {
         this.isDashing = false;
         this.dashBonusReady = false;
         this.moveMode = 'manual';
+        this.runLoot = {}; // Clear run loot
     }
 }

@@ -527,8 +527,9 @@ export class GameMap {
 
     pickupItem(item) {
         if (ITEM_DEFINITIONS[item.type]) {
-            // Add to persistent inventory
+            // Add to persistent inventory & run loot
             SaveManager.addItem(item.type, item.rarity);
+            this.player.addLoot(item.type, item.rarity);
             
             const colors = {
                 grey: '#9e9e9e',
