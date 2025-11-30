@@ -3,46 +3,33 @@ import { randomNumber, getDistance, pushBack } from './utils.js';
 import { Projectile } from './projectile.js';
 
 export class Enemy {
-    constructor(playerLevel, x, y, isBoss = false) {
+    constructor(stats, x, y, isBoss = false) {
         this.isBoss = isBoss;
         this.type = 'melee'; // 'melee' | 'ranged'
-
-        // Basis-Werte
-        const scaleFactor = 1.2;
-        const isStarterSlime = !isBoss && playerLevel <= 1;
-
+        
+        // Stats übernehmen
+        this.maxHp = stats.hp;
+        this.hp = this.maxHp;
+        this.damage = stats.damage;
+        this.level = 1; // Placeholder für Name Gen
+        
+        // Name & Flavor
         if (isBoss) {
-            this.level = 5;
-            this.maxHp = 400;
-            this.hp = this.maxHp;
-            this.damage = 25;
-            this.attackSpeed = 0.5; // alle ~2s
-            this.goldReward = 500;
-            this.expReward = 200;
             this.name = 'Eisen-Golem (Boss)';
-            this.defense = 4;
-        } else if (isStarterSlime) {
-            // Vorgaben für kleinen Schleim
-            this.level = 1;
-            this.maxHp = 30;
-            this.hp = this.maxHp;
-            this.damage = 8;
-            this.attackSpeed = 0.8; // ~1.25s pro Angriff
-            this.goldReward = 15;
-            this.expReward = 10;
-            this.name = 'Kleiner Schleim';
-            this.defense = 0;
+            this.width = 70;
+            this.height = 70;
+            this.expReward = 200;
+            this.goldReward = 0; // Loot wird separat gewürfelt (RollLoot im Map)
+            this.attackSpeed = 0.5;
         } else {
-            this.level = playerLevel;
-            this.maxHp = Math.floor(50 * Math.pow(scaleFactor, playerLevel - 1)) + randomNumber(0, 10 * playerLevel);
-            this.hp = this.maxHp;
-            this.damage = Math.floor(5 * Math.pow(scaleFactor, playerLevel - 1)) + randomNumber(0, 2 * playerLevel);
-            this.goldReward = Math.floor(10 * Math.pow(1.1, playerLevel - 1));
-            this.expReward = 20 + playerLevel * 5;
-            this.name = this.generateName(playerLevel);
-            this.attackSpeed = 0.5; // Default langsam
-            this.defense = 0;
+            this.name = this.generateName(randomNumber(1, 5));
+            this.width = 40;
+            this.height = 40;
+            this.expReward = 10 + randomNumber(1, 10);
+            this.goldReward = 0; // Loot via Map
+            this.attackSpeed = 0.6;
         }
+        this.defense = 0;
 
         // Position & Größe
         this.x = x;

@@ -32,6 +32,10 @@ class Game {
         this.mapOverlay = null;
         this.statsOverlay = null;
         this.isAutoMode = false; // Auto-Pilot Status
+        
+        // Progression
+        this.currentStage = 1;
+        this.currentFloor = 1;
 
         // State Management
         this.gameState = 'START'; // 'START' oder 'PLAYING'
@@ -123,6 +127,9 @@ class Game {
         // Start Screen weg, UI her
         if (this.startScreen) this.startScreen.classList.add('hidden');
         this.toggleUI(true);
+        
+        // Map Progression setzen
+        this.map.setStage(this.currentStage, this.currentFloor);
 
         // Map laden (Gegner spawnen) falls noch leer
         if (!this.map.currentRoom) {
@@ -130,7 +137,7 @@ class Game {
         }
         
         if (this.mapOverlay) this.mapOverlay.draw();
-        UI.log('Das Abenteuer beginnt!', '#00ff00');
+        UI.log(`Stage ${this.currentStage} - Floor ${this.currentFloor}`, '#00ff00');
     }
 
     centerPlayer() {
@@ -220,8 +227,13 @@ class Game {
         // Reset Player (behält Gold/XP)
         this.player.reset();
         
+        // Reset Progression
+        this.currentStage = 1;
+        this.currentFloor = 1;
+        
         // Reset Map (Gegner weg, alles frisch)
         this.map.grid = {}; 
+        this.map.dungeonLayout = {}; // Reset Dungeon Layout too!
         this.map.currentGridX = 0;
         this.map.currentGridY = 0;
         this.map.currentRoom = null; // Wichtig damit update nicht auf null zugreift

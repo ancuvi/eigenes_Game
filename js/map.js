@@ -3,6 +3,7 @@ import { Enemy } from './enemy.js';
 import { Projectile } from './projectile.js';
 import { Item } from './item.js';
 import { randomNumber, checkCollision } from './utils.js';
+import { BalanceManager } from './balanceManager.js';
 import * as UI from './ui.js';
 import ROOM_TEMPLATES from './roomPatterns.js';
 
@@ -16,6 +17,13 @@ export class GameMap {
         this.currentGridY = 0;
         
         this.targetRoomCount = 15;
+        this.stage = 1;
+        this.floor = 1;
+    }
+    
+    setStage(stage, floor) {
+        this.stage = stage;
+        this.floor = floor;
     }
 
     generateDungeon() {
@@ -216,6 +224,10 @@ export class GameMap {
         this.currentRoom = this.grid[key];
         this.currentRoom.visited = true;
     }
+
+    pickEnemyCount() {
+        return BalanceManager.pickEnemyCount();
+    }
     
     parseTemplate(grid, enemies, obstacles, forceNoEnemies = false) {
         const rows = grid.length; 
@@ -237,6 +249,9 @@ export class GameMap {
         
         this.lastParsedWidth = roomW;
         this.lastParsedHeight = roomH;
+
+        // Spawn Candidates für Enemies
+        const enemySpawns = [];
         
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
@@ -253,20 +268,53 @@ export class GameMap {
                         type: cell === 9 ? 'void' : 'wall'
                     });
                 } else if (!forceNoEnemies) {
-                    if (cell === 2) { 
-                        const ex = x + tileW/2 - 20; 
-                        const ey = y + tileH/2 - 20;
-                        const enemy = new Enemy(1, ex, ey);
-                        enemy.type = Math.random() < 0.3 ? 'ranged' : 'melee';
-                        enemies.push(enemy);
-                    } else if (cell === 5) {
-                        const ex = x + tileW/2 - 35; 
-                        const ey = y + tileH/2 - 35;
-                        const boss = new Enemy(5, ex, ey, true);
-                        boss.type = 'melee'; 
-                        enemies.push(boss);
+                    if (cell === 2 || cell === 5) {
+                        const isBoss = (cell === 5);
+                        // Wenn Boss Slot, immer spawnen (es gibt meist nur einen im Boss Template)
+                        if (isBoss) {
+                            const ex = x + tileW/2 - 35; 
+                            const ey = y + tileH/2 - 35;
+                            const stats = BalanceManager.getEnemyStats(this.stage, this.floor, false, true);
+                            const boss = new Enemy(stats, ex, ey, true);
+                            boss.rank = 'boss';
+                            boss.type = 'melee';
+                            enemies.push(boss);
+                        } else {
+                            // Normale Spawn-Kandidaten sammeln
+                            enemySpawns.push({x: x + tileW/2 - 20, y: y + tileH/2 - 20});
+                        }
                     }
                 }
+            }
+        }
+
+        // Nun normale Gegner spawnen (Anzahl limitieren)
+        if (enemySpawns.length > 0) {
+            let count = this.pickEnemyCount();
+            // Max count cannot exceed available slots (though templates usually have enough)
+            // Oder wir erlauben weniger
+            count = Math.min(count, enemySpawns.length);
+            
+            // Shuffle Spawns
+            enemySpawns.sort(() => Math.random() - 0.5);
+            
+            for (let i = 0; i < count; i++) {
+                const pos = enemySpawns[i];
+                const isMiniboss = (Math.random() < 0.05);
+                const stats = BalanceManager.getEnemyStats(this.stage, this.floor, isMiniboss, false);
+                const enemy = new Enemy(stats, pos.x, pos.y, false);
+                
+                if (isMiniboss) {
+                    enemy.name = "Elite " + enemy.name;
+                    enemy.rank = 'miniboss';
+                    enemy.width *= 1.2;
+                    enemy.height *= 1.2;
+                } else {
+                    enemy.rank = 'normal';
+                }
+                
+                enemy.type = Math.random() < 0.3 ? 'ranged' : 'melee';
+                enemies.push(enemy);
             }
         }
         
@@ -364,7 +412,7 @@ export class GameMap {
                 this.player.gainExp(expReward);
                 UI.log(`${e.name} wurde besiegt! +${e.goldReward} Gold, +${expReward} EXP.`, '#90ee90');
                 
-                this.trySpawnItem(e.x, e.y);
+                this.trySpawnItem(e); // Pass Enemy for rank/loot logic
 
                 if (this.player.interactionTarget === e) {
                     this.player.interactionTarget = null;
@@ -381,13 +429,31 @@ export class GameMap {
         }
     }
 
-    trySpawnItem(x, y) {
-        if (Math.random() < 0.2) { 
-            const types = ['weapon_sword', 'weapon_wand', 'potion_hp'];
-            const type = types[Math.floor(Math.random() * types.length)];
-            const item = new Item(x, y, type);
+    trySpawnItem(enemy) {
+        // Roll Loot via Manager
+        const drop = BalanceManager.rollLoot(this.stage, enemy.rank || 'normal');
+        
+        if (drop) {
+            let type = 'potion_hp'; // Fallback
+            
+            if (drop.type === 'gold') {
+                this.player.gainGold(drop.value);
+                UI.log(`Gegner droppt ${drop.value} Gold!`, '#ffd700');
+                return;
+            } else if (drop.type === 'material') {
+                // Mats noch nicht implementiert -> Fallback zu Potion oder Gold
+                this.player.gainGold(5); 
+                return;
+            } else if (drop.type === 'gear') {
+                // Waffe basierend auf Zufall
+                type = Math.random() < 0.5 ? 'weapon_sword' : 'weapon_wand';
+            }
+            
+            const item = new Item(enemy.x, enemy.y, type);
+            item.rarity = drop.rarity; 
+            
             if (this.currentRoom.items) this.currentRoom.items.push(item);
-            console.log("Item dropped:", type);
+            console.log("Item dropped:", type, drop.rarity);
         }
     }
 
