@@ -1,3 +1,5 @@
+import { TILE } from '../constants.js';
+
 export const DOOR_MASK = {
     NORTH: 1,
     EAST: 2,
@@ -29,9 +31,9 @@ export class RoomPattern {
         const spawns = [];
         const cleaned = grid.map((row, r) =>
             row.map((cell, c) => {
-                if (cell === 2 || cell === 5) {
-                    spawns.push({ row: r, col: c, isBoss: cell === 5 });
-                    return 0;
+                if (cell === TILE.ENEMY_SPAWN || cell === TILE.BOSS_SPAWN) {
+                    spawns.push({ row: r, col: c, isBoss: cell === TILE.BOSS_SPAWN });
+                    return TILE.FLOOR;
                 }
                 return cell;
             })

@@ -9,6 +9,7 @@ import PATTERN_REGISTRY, { makeFallbackPattern, DOOR_MASK, maskFromNeighbors } f
 import { RoomDistributionManager, FLOOR_CONFIG } from './roomDistributionManager.js';
 import { ITEM_DEFINITIONS } from './items/itemData.js';
 import { SaveManager } from './saveManager.js';
+import { TILE, TILE_SIZE } from './constants.js';
 
 // Utility: Fisher-Yates Shuffle
 function shuffleInPlace(arr) {
@@ -270,7 +271,8 @@ export class GameMap {
             
             this.grid[key] = {
                 enemies: enemies,
-                obstacles: parsed.obstacles,
+                obstacles: [], // Legacy obstacles removed, relying on tiles
+                tiles: parsed.tiles,
                 projectiles: projectiles,
                 items: items,
                 visited: true,
@@ -300,62 +302,60 @@ export class GameMap {
         const rows = grid.length; 
         const cols = grid[0].length;
         
-        const wall = 20;
-        
-        const screenW = this.canvas.width;
-        const screenH = this.canvas.height;
-        
-        const baseCols = 13;
-        const baseRows = 9;
-        
-        const tileW = (screenW - 2 * wall) / baseCols;
-        const tileH = (screenH - 2 * wall) / baseRows;
-        
-        const roomW = cols * tileW + 2 * wall;
-        const roomH = rows * tileH + 2 * wall;
+        const roomW = cols * TILE_SIZE;
+        const roomH = rows * TILE_SIZE;
         
         this.lastParsedWidth = roomW;
         this.lastParsedHeight = roomH;
 
-        const obstacles = [];
+        const tiles = [];
         const spawnPointsWorld = [];
         const items = [];
         
         for (let r = 0; r < rows; r++) {
+            const rowTiles = [];
             for (let c = 0; c < cols; c++) {
-                const cell = grid[r][c];
-                const x = wall + c * tileW;
-                const y = wall + r * tileH;
+                let cell = grid[r][c];
+                const x = c * TILE_SIZE;
+                const y = r * TILE_SIZE;
                 
-                if (cell === 1 || cell === 9) {
-                    obstacles.push({
-                        x: x,
-                        y: y,
-                        width: tileW,
-                        height: tileH,
-                        type: cell === 9 ? 'void' : 'wall'
-                    });
-                } else if (cell === 3) {
+                // Handle special logic tiles (spawns, items)
+                // Note: WALL and DOORS are kept as tiles
+                if (cell === TILE.TREASURE) { // Treasure
                     items.push({
-                        x: x + tileW/2 - 20, // Center item
-                        y: y + tileH/2 - 20,
+                        x: x + TILE_SIZE/2 - 10, // approximate centering
+                        y: y + TILE_SIZE/2 - 10,
                         type: 'treasure_chest'
                     });
+                    cell = TILE.FLOOR; // Clear tile under item
+                } else if (cell === TILE.ENEMY_SPAWN || cell === TILE.BOSS_SPAWN) {
+                    // This logic might be redundant if pattern already extracted potentialSpawnPoints
+                    // But if they are in the grid:
+                    // We handle them here if they are not in potentialSpawnPoints list?
+                    // The RoomPattern class extracts them to potentialSpawnPoints.
+                    // But in patterns.js we might have put them back?
+                    // Assuming they are handled via potentialSpawnPoints property of pattern.
+                    // But if the grid has them, we turn them to floor.
+                    cell = TILE.FLOOR;
                 }
+                
+                rowTiles.push(cell);
             }
+            tiles.push(rowTiles);
         }
 
         if (!forceNoEnemies && pattern.potentialSpawnPoints) {
             pattern.potentialSpawnPoints.forEach((pt) => {
                 spawnPointsWorld.push({
-                    x: wall + pt.col * tileW + tileW / 2 - 20,
-                    y: wall + pt.row * tileH + tileH / 2 - 20,
+                    x: pt.col * TILE_SIZE + TILE_SIZE / 2 - 10,
+                    y: pt.row * TILE_SIZE + TILE_SIZE / 2 - 10,
                     isBoss: pt.isBoss
                 });
             });
         }
         
-        return { roomW, roomH, obstacles, spawnPointsWorld, items };
+        // Return tiles instead of obstacles
+        return { roomW, roomH, tiles, spawnPointsWorld, items, obstacles: [] };
     }
 
     switchRoom(direction) {
@@ -373,24 +373,27 @@ export class GameMap {
         
         const w = this.currentRoom.width;
         const h = this.currentRoom.height;
-        const spawnMargin = 60; 
         const playerSize = this.player.width;
+        
+        // Place player near the door they came from
+        // Assuming 16x16 tiles, we want to place them 2 tiles in?
+        const offset = TILE_SIZE * 2.5;
 
         switch(direction) {
             case 'up':
                 this.player.x = w / 2 - playerSize / 2;
-                this.player.y = h - spawnMargin - playerSize;
+                this.player.y = h - offset - playerSize;
                 break;
             case 'down':
                 this.player.x = w / 2 - playerSize / 2;
-                this.player.y = spawnMargin;
+                this.player.y = offset;
                 break;
             case 'left':
-                this.player.x = w - spawnMargin - playerSize;
+                this.player.x = w - offset - playerSize;
                 this.player.y = h / 2 - playerSize / 2;
                 break;
             case 'right':
-                this.player.x = spawnMargin;
+                this.player.x = offset;
                 this.player.y = h / 2 - playerSize / 2;
                 break;
         }
@@ -400,15 +403,20 @@ export class GameMap {
     
     getDoorAt(x, y) {
         if (!this.currentRoom || this.currentRoom.enemies.length > 0) return null;
-        const doorMask = this.currentRoom.doorMask ?? maskFromNeighbors(this.currentRoom.layout.neighbors);
-        const w = this.currentRoom.width; 
-        const h = this.currentRoom.height;
-        const doorSize = 100;
         
-        if ((doorMask & DOOR_MASK.NORTH) && y <= 50 && x >= w/2 - doorSize/2 && x <= w/2 + doorSize/2) return 'up';
-        if ((doorMask & DOOR_MASK.SOUTH) && y >= h - 50 && x >= w/2 - doorSize/2 && x <= w/2 + doorSize/2) return 'down';
-        if ((doorMask & DOOR_MASK.WEST) && x <= 50 && y >= h/2 - doorSize/2 && y <= h/2 + doorSize/2) return 'left';
-        if ((doorMask & DOOR_MASK.EAST) && x >= w - 50 && y >= h/2 - doorSize/2 && y <= h/2 + doorSize/2) return 'right';
+        const tiles = this.currentRoom.tiles;
+        if (!tiles) return null;
+
+        const c = Math.floor(x / TILE_SIZE);
+        const r = Math.floor(y / TILE_SIZE);
+        
+        if (r >= 0 && r < tiles.length && c >= 0 && c < tiles[0].length) {
+            const tile = tiles[r][c];
+            if (tile === TILE.DOOR_NORTH) return 'up';
+            if (tile === TILE.DOOR_SOUTH) return 'down';
+            if (tile === TILE.DOOR_WEST) return 'left';
+            if (tile === TILE.DOOR_EAST) return 'right';
+        }
         
         return null;
     }
@@ -640,21 +648,44 @@ export class GameMap {
 
     // Allgemeine Kollision für alle Entities (Player & Enemies)
     checkEntityCollision(ent) {
-        const w = this.currentRoom.width; 
-        const h = this.currentRoom.height;
-        const wall = 20; 
-        
-        // Grenzen / Walls (Clamping)
-        if (ent.x < wall) ent.x = wall;
-        if (ent.x + ent.width > w - wall) ent.x = w - wall - ent.width;
-        if (ent.y < wall) ent.y = wall;
-        if (ent.y + ent.height > h - wall) ent.y = h - wall - ent.height;
-        
-        // Hindernisse
-        if (this.currentRoom.obstacles) {
-            for (let obs of this.currentRoom.obstacles) {
-                if (checkCollision(ent, obs)) {
-                    this.resolveAABB(ent, obs);
+        const tiles = this.currentRoom.tiles;
+        if (!tiles) return;
+
+        // Bounding box of entity
+        const minC = Math.floor(ent.x / TILE_SIZE);
+        const minR = Math.floor(ent.y / TILE_SIZE);
+        const maxC = Math.floor((ent.x + ent.width) / TILE_SIZE);
+        const maxR = Math.floor((ent.y + ent.height) / TILE_SIZE);
+
+        const rows = tiles.length;
+        const cols = tiles[0].length;
+        const isClear = this.currentRoom.enemies.length === 0;
+
+        for (let r = minR; r <= maxR; r++) {
+            for (let c = minC; c <= maxC; c++) {
+                if (r < 0 || r >= rows || c < 0 || c >= cols) continue;
+                
+                const tile = tiles[r][c];
+                let solid = false;
+                
+                if (tile === TILE.WALL || tile === TILE.OBSTACLE) {
+                    solid = true;
+                } else if (tile === TILE.DOOR_NORTH || tile === TILE.DOOR_SOUTH || 
+                           tile === TILE.DOOR_EAST || tile === TILE.DOOR_WEST) {
+                    // Doors are solid if not clear
+                    if (!isClear) solid = true;
+                }
+
+                if (solid) {
+                    const rect = {
+                        x: c * TILE_SIZE,
+                        y: r * TILE_SIZE,
+                        width: TILE_SIZE,
+                        height: TILE_SIZE
+                    };
+                    if (checkCollision(ent, rect)) {
+                        this.resolveAABB(ent, rect);
+                    }
                 }
             }
         }
@@ -664,7 +695,7 @@ export class GameMap {
     checkPlayerCollisions() {
         const p = this.player;
         
-        // Zuerst Doors checken (bevor wir clamped werden)
+        // Zuerst Doors checken
         if (this.checkDoors(p)) return;
         
         // Dann normale Kollision (Wände/Steine)
@@ -672,46 +703,40 @@ export class GameMap {
     }
     
     checkDoors(p) {
-        const w = this.currentRoom.width; 
-        const h = this.currentRoom.height;
-        const wall = 20; 
-        const doorW = 100; 
+        const tiles = this.currentRoom.tiles;
+        if (!tiles) return false;
         
-        const layout = this.currentRoom.layout;
         const isClear = this.currentRoom.enemies.length === 0;
+        if (!isClear) return false;
 
-        // Links
-        if (p.x < wall) {
-            const inDoorRange = p.y + p.height/2 > h/2 - doorW/2 && p.y + p.height/2 < h/2 + doorW/2;
-            if (layout.neighbors.left && isClear && inDoorRange) {
+        // Check center of player
+        const cx = p.x + p.width / 2;
+        const cy = p.y + p.height / 2;
+        
+        const c = Math.floor(cx / TILE_SIZE);
+        const r = Math.floor(cy / TILE_SIZE);
+        
+        if (r >= 0 && r < tiles.length && c >= 0 && c < tiles[0].length) {
+            const tile = tiles[r][c];
+            
+            if (tile === TILE.DOOR_NORTH) {
+                this.switchRoom('up');
+                return true;
+            }
+            if (tile === TILE.DOOR_SOUTH) {
+                this.switchRoom('down');
+                return true;
+            }
+            if (tile === TILE.DOOR_WEST) {
                 this.switchRoom('left');
                 return true;
             }
-        }
-        // Rechts
-        if (p.x + p.width > w - wall) {
-            const inDoorRange = p.y + p.height/2 > h/2 - doorW/2 && p.y + p.height/2 < h/2 + doorW/2;
-            if (layout.neighbors.right && isClear && inDoorRange) {
+            if (tile === TILE.DOOR_EAST) {
                 this.switchRoom('right');
                 return true;
             }
         }
-        // Oben
-        if (p.y < wall) {
-            const inDoorRange = p.x + p.width/2 > w/2 - doorW/2 && p.x + p.width/2 < w/2 + doorW/2;
-            if (layout.neighbors.up && isClear && inDoorRange) {
-                this.switchRoom('up');
-                return true;
-            }
-        }
-        // Unten
-        if (p.y + p.height > h - wall) {
-            const inDoorRange = p.x + p.width/2 > w/2 - doorW/2 && p.x + p.width/2 < w/2 + doorW/2;
-            if (layout.neighbors.down && isClear && inDoorRange) {
-                this.switchRoom('down');
-                return true;
-            }
-        }
+        
         return false;
     }
     

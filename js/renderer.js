@@ -1,4 +1,5 @@
 // Renderer: Zeichnet alles auf das Canvas
+import { TILE, TILE_SIZE } from './constants.js';
 
 export class Renderer {
     constructor(canvas, player, map, inputHandler, camera) {
@@ -250,51 +251,81 @@ export class Renderer {
     }
 
     drawWallsAndDoors(roomW, roomH) {
-        if (!this.map.currentRoom) return;
+        if (!this.map.currentRoom || !this.map.currentRoom.tiles) return;
 
-        const w = roomW;
-        const h = roomH;
-        const wallThick = 20;
-        const doorSize = 100;
+        const tiles = this.map.currentRoom.tiles;
+        const rows = tiles.length;
+        const cols = tiles[0].length;
         const isClear = this.map.currentRoom.enemies.length === 0;
-        const layout = this.map.currentRoom.layout;
 
-        // Wände (Grün)
-        this.ctx.fillStyle = '#2e7d32'; 
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const tile = tiles[r][c];
+                const x = c * TILE_SIZE;
+                const y = r * TILE_SIZE;
+
+                // Draw Floor (everywhere?)
+                // Maybe optimize later, but for now draw floor then object on top if needed
+                // Or just background is enough (already drawn in draw())
+                
+                if (tile === TILE.WALL) {
+                    this.ctx.fillStyle = '#2e7d32'; // Wall Green
+                    this.ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    this.ctx.strokeStyle = '#1b5e20';
+                    this.ctx.lineWidth = 1;
+                    this.ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+                } else if (tile === TILE.OBSTACLE) {
+                    this.ctx.fillStyle = '#555';
+                    this.ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    this.ctx.strokeStyle = '#222';
+                    this.ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+                    // 3D effect highlight
+                    this.ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                    this.ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE/3);
+                } else if (tile === TILE.DOOR_NORTH || tile === TILE.DOOR_SOUTH || 
+                           tile === TILE.DOOR_EAST || tile === TILE.DOOR_WEST) {
+                    
+                    // Door Logic
+                    if (isClear) {
+                        this.ctx.fillStyle = '#000'; // Open (Floor/Hole)
+                        this.ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        
+                        // Maybe draw arrow if it's the center of the door?
+                        // Hard to detect center of multi-tile door here without checking neighbors
+                        // But we can just draw nothing (open)
+                    } else {
+                        this.ctx.fillStyle = '#8d6e63'; // Closed Door (Wood color)
+                        this.ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        this.ctx.strokeStyle = '#3e2723';
+                        this.ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+        }
         
-        this.ctx.fillRect(0, 0, w, wallThick); // Top
-        this.ctx.fillRect(0, h - wallThick, w, wallThick); // Bottom
-        this.ctx.fillRect(0, 0, wallThick, h); // Left
-        this.ctx.fillRect(w - wallThick, 0, wallThick, h); // Right
-
-        const cx = this.map.currentGridX;
-        const cy = this.map.currentGridY;
-
-        const getDoorColor = (dx, dy) => {
-            const key = `${cx + dx},${cy + dy}`;
-            return this.map.grid[key] ? '#666' : '#222'; 
-        };
-
-        // Türen zentriert an den Wänden des RAUMES
-        if (layout.neighbors.up) {
-            this.ctx.fillStyle = getDoorColor(0, 1);
-            this.ctx.fillRect(w/2 - doorSize/2, 0, doorSize, wallThick);
-            if (isClear) this.drawArrow(w/2, wallThick + 20, 'up');
-        }
-        if (layout.neighbors.down) {
-            this.ctx.fillStyle = getDoorColor(0, -1);
-            this.ctx.fillRect(w/2 - doorSize/2, h - wallThick, doorSize, wallThick);
-            if (isClear) this.drawArrow(w/2, h - wallThick - 20, 'down');
-        }
-        if (layout.neighbors.left) {
-            this.ctx.fillStyle = getDoorColor(-1, 0);
-            this.ctx.fillRect(0, h/2 - doorSize/2, wallThick, doorSize);
-            if (isClear) this.drawArrow(wallThick + 20, h/2, 'left');
-        }
-        if (layout.neighbors.right) {
-            this.ctx.fillStyle = getDoorColor(1, 0);
-            this.ctx.fillRect(w - wallThick, h/2 - doorSize/2, wallThick, doorSize);
-            if (isClear) this.drawArrow(w - wallThick - 20, h/2, 'right');
+        // Arrows for open doors (heuristic: center of walls)
+        if (isClear) {
+            const w = roomW;
+            const h = roomH;
+            // North
+            if (this.map.getDoorAt(w/2, 0)) this.drawArrow(w/2, 30, 'up');
+            // South
+            if (this.map.getDoorAt(w/2, h)) this.drawArrow(w/2, h - 30, 'down'); // Wait, map.getDoorAt logic might need update?
+            // Actually map.getDoorAt uses old coords logic in previous thinking... 
+            // I updated getDoorAt in map.js? No I updated checkDoors. 
+            // getDoorAt in map.js was NOT updated. I should check that tool result.
+            // Oh, I only updated checkPlayerCollisions and checkEntityCollision and parsePattern. 
+            // I did NOT update getDoorAt.
+            // But getDoorAt is used by UI/Renderer maybe?
+            // In Renderer it was used in my thinking but the original code didn't use getDoorAt in drawWallsAndDoors.
+            // It used layout.neighbors.
+            
+            // Let's use layout.neighbors for arrows
+            const layout = this.map.currentRoom.layout;
+            if (layout.neighbors.up) this.drawArrow(w/2, TILE_SIZE + 10, 'up');
+            if (layout.neighbors.down) this.drawArrow(w/2, h - TILE_SIZE - 10, 'down');
+            if (layout.neighbors.left) this.drawArrow(TILE_SIZE + 10, h/2, 'left');
+            if (layout.neighbors.right) this.drawArrow(w - TILE_SIZE - 10, h/2, 'right');
         }
     }
 

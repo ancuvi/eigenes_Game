@@ -1,4 +1,5 @@
 import { RoomPattern, DOOR_MASK } from './RoomPattern.js';
+import { TILE } from '../constants.js';
 import { ONE_DOOR } from './1_door.js';
 import { TWO_DOORS } from './2_doors.js';
 import { THREE_DOORS } from './3_doors.js';
@@ -58,41 +59,96 @@ function mapLegacy(legacyList, masks, type = 'Normal', idPrefix = 'legacy') {
                 mask,
                 type,
                 `${idPrefix}-${idx}`,
-                (g) => carveDoors(g, mask)
+                (g) => applyWallsAndDoors(g, mask)
             )
         )
     );
 }
 
-function carveDoors(grid, mask) {
+function applyWallsAndDoors(grid, mask) {
     const rows = grid.length;
     const cols = grid[0].length;
-    const open = (r, c, width = 3, height = 3) => {
-        for (let y = r; y < r + height; y++) {
-            for (let x = c; x < c + width; x++) {
-                if (grid[y] && grid[y][x] !== undefined) grid[y][x] = 0;
+
+    // 1. Set walls on edges
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) {
+                grid[r][c] = TILE.WALL;
             }
         }
-    };
+    }
 
-    if (mask & DOOR_MASK.NORTH) open(0, Math.floor(cols / 2) - 1, 3, 2);
-    if (mask & DOOR_MASK.SOUTH) open(rows - 2, Math.floor(cols / 2) - 1, 3, 2);
-    if (mask & DOOR_MASK.WEST) open(Math.floor(rows / 2) - 1, 0, 2, 3);
-    if (mask & DOOR_MASK.EAST) open(Math.floor(rows / 2) - 1, cols - 2, 2, 3);
+    // 2. Set Doors
+    // Door width/position logic. 
+    // Assuming center of wall. 
+    // Let's make doors 3 tiles wide for now to match previous logic roughly, 
+    // or maybe 2 tiles? previous was width=3. 
+    // Center is Math.floor(cols / 2). 
+    // If cols=13, center=6. width=3 => 5, 6, 7.
+    
+    const midCol = Math.floor(cols / 2);
+    const midRow = Math.floor(rows / 2);
+
+    // North
+    if (mask & DOOR_MASK.NORTH) {
+        // Only set the top row (r=0) to DOOR
+        grid[0][midCol] = TILE.DOOR_NORTH;
+        grid[0][midCol - 1] = TILE.DOOR_NORTH;
+        grid[0][midCol + 1] = TILE.DOOR_NORTH;
+        
+        // Clear the tiles below the door so player can walk in?
+        // Previous carveDoors cleared a 3x2 area.
+        // If we have 16x16 tiles, and walls are 1 tile thick, we probably want floor right inside the door.
+        // r=1 is inside.
+        grid[1][midCol] = TILE.FLOOR;
+        grid[1][midCol - 1] = TILE.FLOOR;
+        grid[1][midCol + 1] = TILE.FLOOR;
+    }
+
+    // South
+    if (mask & DOOR_MASK.SOUTH) {
+        grid[rows - 1][midCol] = TILE.DOOR_SOUTH;
+        grid[rows - 1][midCol - 1] = TILE.DOOR_SOUTH;
+        grid[rows - 1][midCol + 1] = TILE.DOOR_SOUTH;
+        
+        grid[rows - 2][midCol] = TILE.FLOOR;
+        grid[rows - 2][midCol - 1] = TILE.FLOOR;
+        grid[rows - 2][midCol + 1] = TILE.FLOOR;
+    }
+
+    // West
+    if (mask & DOOR_MASK.WEST) {
+        grid[midRow][0] = TILE.DOOR_WEST;
+        grid[midRow - 1][0] = TILE.DOOR_WEST;
+        grid[midRow + 1][0] = TILE.DOOR_WEST;
+        
+        grid[midRow][1] = TILE.FLOOR;
+        grid[midRow - 1][1] = TILE.FLOOR;
+        grid[midRow + 1][1] = TILE.FLOOR;
+    }
+
+    // East
+    if (mask & DOOR_MASK.EAST) {
+        grid[midRow][cols - 1] = TILE.DOOR_EAST;
+        grid[midRow - 1][cols - 1] = TILE.DOOR_EAST;
+        grid[midRow + 1][cols - 1] = TILE.DOOR_EAST;
+        
+        grid[midRow][cols - 2] = TILE.FLOOR;
+        grid[midRow - 1][cols - 2] = TILE.FLOOR;
+        grid[midRow + 1][cols - 2] = TILE.FLOOR;
+    }
 
     return grid;
 }
 
 export function makeFallbackPattern(mask, type = 'Normal', rows = 9, cols = 13) {
     const base = Array.from({ length: rows }, (_, r) =>
-        Array.from({ length: cols }, (_, c) =>
-            r === 0 || c === 0 || r === rows - 1 || c === cols - 1 ? 1 : 0
-        )
+        Array.from({ length: cols }, (_, c) => 0) // Initialize with 0 (FLOOR)
     );
-    const carved = carveDoors(base, mask);
+    const walled = applyWallsAndDoors(base, mask);
     return new RoomPattern({
         id: `fallback-${type}-${mask}`,
-        grid: carved,
+        grid: walled,
         doorMask: mask,
         type,
         potentialSpawnPoints: [{ row: Math.floor(rows / 2), col: Math.floor(cols / 2) }]
