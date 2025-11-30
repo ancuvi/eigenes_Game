@@ -1,6 +1,7 @@
 // Enemy Klasse: Gegner mit Position und Stats
 import { randomNumber, getDistance, pushBack } from './utils.js';
 import { Projectile } from './projectile.js';
+import { ENEMY_SIZE, BOSS_SIZE } from './constants.js';
 
 export class Enemy {
     constructor(stats, x, y, isBoss = false) {
@@ -16,15 +17,15 @@ export class Enemy {
         // Name & Flavor
         if (isBoss) {
             this.name = 'Eisen-Golem (Boss)';
-            this.width = 70;
-            this.height = 70;
+            this.width = BOSS_SIZE;
+            this.height = BOSS_SIZE;
             this.expReward = 200;
             this.goldReward = 0; // Loot wird separat gewürfelt (RollLoot im Map)
             this.attackSpeed = 0.5;
         } else {
             this.name = this.generateName(randomNumber(1, 5));
-            this.width = 40;
-            this.height = 40;
+            this.width = ENEMY_SIZE;
+            this.height = ENEMY_SIZE;
             this.expReward = 10 + randomNumber(1, 10);
             this.goldReward = 0; // Loot via Map
             this.attackSpeed = 0.6;
@@ -34,18 +35,12 @@ export class Enemy {
         // Position & Größe
         this.x = x;
         this.y = y;
-        if (isBoss) {
-            this.width = 70;
-            this.height = 70;
-        } else {
-            this.width = 40;
-            this.height = 40;
-        }
+        // Width/Height already set above
 
         // Kampf
         this.attackCooldown = 0;
         this.attackRange = 60;
-        this.speed = 140;
+        this.speed = 80;
         this.aggroRange = 200; // Bereich in dem der Gegner den Spieler bemerkt
         this.leashRange = 450; // Abbruchdistanz, falls Spieler sehr weit weg läuft
         this.isAggro = false;
@@ -94,15 +89,15 @@ export class Enemy {
             if (this.type === 'ranged') {
                 this.updateRanged(dt, player, distToPlayer, map);
             } else {
-                this.updateMelee(dt, player, distToPlayer);
+                this.updateMelee(dt, player, distToPlayer, map);
             }
         }
     }
 
-    updateMelee(dt, player, dist) {
+    updateMelee(dt, player, dist, map) {
         if (dist <= this.attackRange) {
             if (this.attackCooldown <= 0) {
-                this.performMeleeAttack(player);
+                this.performMeleeAttack(player, map);
             }
         } else {
             // Chase
@@ -155,9 +150,9 @@ export class Enemy {
         }
     }
 
-    performMeleeAttack(player) {
+    performMeleeAttack(player, map) {
         player.takeDamage(this.damage, this);
-        pushBack(player, this, 20);
+        pushBack(player, this, 20, map ? map.currentRoom : null);
         this.attackCooldown = 1.0 / this.attackSpeed;
     }
 
@@ -175,7 +170,7 @@ export class Enemy {
         this.attackCooldown = 1.5 / this.attackSpeed; // Etwas langsamer schießen
     }
 
-    takeDamage(amount, attacker = null) {
+    takeDamage(amount, attacker = null, map = null) {
         const effective = Math.max(0, amount - (this.defense || 0));
         this.hp -= effective;
         if (this.hp < 0) this.hp = 0;
@@ -184,7 +179,7 @@ export class Enemy {
         if (attacker && attacker.constructor.name === 'Player') {
             // Knockback
             if (attacker.knockbackChance > 0 && Math.random() < attacker.knockbackChance) {
-                pushBack(this, attacker, 50);
+                pushBack(this, attacker, 50, map ? map.currentRoom : null);
             }
             // Stun
             if (attacker.stunChance > 0 && Math.random() < attacker.stunChance) {

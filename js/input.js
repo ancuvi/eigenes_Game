@@ -2,6 +2,7 @@
 
 import { isPointInRect } from './utils.js';
 import * as UI from './ui.js';
+import { RENDER_SCALE } from './constants.js';
 
 export class InputHandler {
     constructor(canvas, player, map) {
@@ -106,8 +107,9 @@ export class InputHandler {
     }
 
     processClick(screenX, screenY) {
-        let x = screenX;
-        let y = screenY;
+        // Adjust for Render Scale
+        let x = screenX / RENDER_SCALE;
+        let y = screenY / RENDER_SCALE;
         
         // Transform to World Space if camera exists
         if (this.camera) {

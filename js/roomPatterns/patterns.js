@@ -1,11 +1,6 @@
 import { RoomPattern, DOOR_MASK } from './RoomPattern.js';
 import { TILE } from '../constants.js';
-import { ONE_DOOR } from './1_door.js';
-import { TWO_DOORS } from './2_doors.js';
-import { THREE_DOORS } from './3_doors.js';
-import { FOUR_DOORS } from './4_doors.js';
-import { BOSS } from './boss.js';
-import { SECRET } from './treasure.js';
+import { NORMAL_LAYOUTS, TREASURE_LAYOUTS, BOSS_LAYOUTS } from './layouts.js';
 
 const ALL_MASKS = [
     DOOR_MASK.NORTH,
@@ -25,40 +20,14 @@ const ALL_MASKS = [
     DOOR_MASK.NORTH | DOOR_MASK.EAST | DOOR_MASK.SOUTH | DOOR_MASK.WEST
 ];
 
-const ONE_DOOR_MASKS = [
-    DOOR_MASK.NORTH,
-    DOOR_MASK.EAST,
-    DOOR_MASK.SOUTH,
-    DOOR_MASK.WEST
-];
-
-const TWO_DOOR_STRAIGHT = [
-    DOOR_MASK.NORTH | DOOR_MASK.SOUTH,
-    DOOR_MASK.EAST | DOOR_MASK.WEST
-];
-
-const TWO_DOOR_CORNERS = [
-    DOOR_MASK.NORTH | DOOR_MASK.EAST,
-    DOOR_MASK.EAST | DOOR_MASK.SOUTH,
-    DOOR_MASK.SOUTH | DOOR_MASK.WEST,
-    DOOR_MASK.WEST | DOOR_MASK.NORTH
-];
-
-const THREE_DOOR_MASKS = [
-    DOOR_MASK.EAST | DOOR_MASK.SOUTH | DOOR_MASK.WEST,
-    DOOR_MASK.SOUTH | DOOR_MASK.WEST | DOOR_MASK.NORTH,
-    DOOR_MASK.WEST | DOOR_MASK.NORTH | DOOR_MASK.EAST,
-    DOOR_MASK.NORTH | DOOR_MASK.EAST | DOOR_MASK.SOUTH
-];
-
-function mapLegacy(legacyList, masks, type = 'Normal', idPrefix = 'legacy') {
+function generatePatterns(layouts, masks, type = 'Normal', idPrefix = 'room') {
     return masks.flatMap((mask) =>
-        legacyList.map((tpl, idx) =>
+        layouts.map((layout) =>
             RoomPattern.fromLegacy(
-                tpl.grid,
+                layout.grid,
                 mask,
                 type,
-                `${idPrefix}-${idx}`,
+                `${idPrefix}-${layout.id}-${mask}`,
                 (g) => applyWallsAndDoors(g, mask)
             )
         )
@@ -156,14 +125,15 @@ export function makeFallbackPattern(mask, type = 'Normal', rows = 9, cols = 13) 
 }
 
 const PATTERN_REGISTRY = [
-    ...mapLegacy(ONE_DOOR, ONE_DOOR_MASKS, 'Normal', '1door'),
-    ...mapLegacy(TWO_DOORS, TWO_DOOR_STRAIGHT, 'Normal', '2door-straight'),
-    ...mapLegacy(TWO_DOORS, TWO_DOOR_CORNERS, 'Normal', '2door-corner'),
-    ...mapLegacy(THREE_DOORS, THREE_DOOR_MASKS, 'Normal', '3door'),
-    ...mapLegacy(FOUR_DOORS, [DOOR_MASK.NORTH | DOOR_MASK.EAST | DOOR_MASK.SOUTH | DOOR_MASK.WEST], 'Normal', '4door'),
-    ...mapLegacy(BOSS, ALL_MASKS, 'Boss', 'boss'),
-    ...mapLegacy(SECRET, ALL_MASKS, 'Treasure', 'treasure'),
-    ...mapLegacy(ONE_DOOR, ONE_DOOR_MASKS, 'Start', 'start')
+    // Alle Normalen Layouts mit allen Masken kombinieren
+    ...generatePatterns(NORMAL_LAYOUTS, ALL_MASKS, 'Normal', 'normal'),
+    
+    // Boss und Treasure
+    ...generatePatterns(BOSS_LAYOUTS, ALL_MASKS, 'Boss', 'boss'),
+    ...generatePatterns(TREASURE_LAYOUTS, ALL_MASKS, 'Treasure', 'treasure'),
+    
+    // Start (nutzt auch normale Layouts, aber Map-Logic verhindert Gegner)
+    ...generatePatterns(NORMAL_LAYOUTS, ALL_MASKS, 'Start', 'start')
 ];
 
 export default PATTERN_REGISTRY;

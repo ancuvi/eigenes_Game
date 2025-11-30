@@ -29,10 +29,16 @@ export class RoomPattern {
 
     static fromLegacy(grid, doorMask, type = 'Normal', idPrefix = 'legacy', processGrid) {
         const spawns = [];
+        const rows = grid.length;
+        const cols = grid[0].length;
+        
         const cleaned = grid.map((row, r) =>
             row.map((cell, c) => {
                 if (cell === TILE.ENEMY_SPAWN || cell === TILE.BOSS_SPAWN) {
-                    spawns.push({ row: r, col: c, isBoss: cell === TILE.BOSS_SPAWN });
+                    // Filter out spawns on the edge (walls)
+                    if (r > 0 && r < rows - 1 && c > 0 && c < cols - 1) {
+                        spawns.push({ row: r, col: c, isBoss: cell === TILE.BOSS_SPAWN });
+                    }
                     return TILE.FLOOR;
                 }
                 return cell;

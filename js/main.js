@@ -11,6 +11,7 @@ import * as UI from './ui.js';
 import { SaveManager } from './saveManager.js';
 import { ITEM_DEFINITIONS, RARITY_LEVELS } from './items/itemData.js';
 import { Item } from './item.js';
+import { RENDER_SCALE, TILE_SIZE } from './constants.js';
 
 class Game {
     constructor() {
@@ -92,9 +93,10 @@ class Game {
             this.canvas.height = window.innerHeight;
         }
         
+        // Update Camera Viewport (World Units)
         if (this.camera) {
-            this.camera.width = this.canvas.width;
-            this.camera.height = this.canvas.height;
+            this.camera.width = this.canvas.width / RENDER_SCALE;
+            this.camera.height = this.canvas.height / RENDER_SCALE;
         }
         
         if (!this.isRunning && this.renderer) {
@@ -106,7 +108,8 @@ class Game {
         console.log('Initializing Game...');
         this.handleResize();
         
-        this.camera = new Camera(this.canvas.width, this.canvas.height);
+        // Camera operates in World Units (scaled down screen size)
+        this.camera = new Camera(this.canvas.width / RENDER_SCALE, this.canvas.height / RENDER_SCALE);
         this.inputHandler.camera = this.camera;
         this.renderer = new Renderer(this.canvas, this.player, this.map, this.inputHandler, this.camera);
 
@@ -506,14 +509,31 @@ class Game {
         if (!this.map.currentRoom) {
             this.map.loadRoom(0, 0);
         }
+
+        // Spawn Player correctly in Room Center
+        if (this.map.currentRoom) {
+            const tiles = this.map.currentRoom.tiles;
+            const spawnX = Math.floor(tiles[0].length / 2);
+            const spawnY = Math.floor(tiles.length / 2);
+            this.player.x = spawnX * TILE_SIZE;
+            this.player.y = spawnY * TILE_SIZE;
+            
+            // Force Camera Update immediately
+            if (this.camera) {
+                this.camera.update(this.player, this.map.currentRoom.width, this.map.currentRoom.height);
+            }
+        }
         
         if (this.mapOverlay) this.mapOverlay.draw();
         UI.log(`Stage ${this.currentStage} - Floor ${this.currentFloor}`, '#00ff00');
     }
 
     centerPlayer() {
-        this.player.x = this.canvas.width / 2 - this.player.width / 2;
-        this.player.y = this.canvas.height / 2 - this.player.height / 2;
+        // Center in World Space
+        const worldW = this.canvas.width / RENDER_SCALE;
+        const worldH = this.canvas.height / RENDER_SCALE;
+        this.player.x = worldW / 2 - this.player.width / 2;
+        this.player.y = worldH / 2 - this.player.height / 2;
         this.player.targetX = this.player.x;
         this.player.targetY = this.player.y;
     }
@@ -561,9 +581,16 @@ class Game {
     update(dt) {
         if (this.gameState === 'START') {
             this.menuTime += dt;
-            const centerY = this.canvas.height / 2 - this.player.height / 2;
-            const bounce = Math.abs(Math.sin(this.menuTime * 5) * 60); 
-            this.player.x = this.canvas.width / 2 - this.player.width / 2;
+            const worldW = this.canvas.width / RENDER_SCALE;
+            const worldH = this.canvas.height / RENDER_SCALE;
+            const centerY = worldH / 2 - this.player.height / 2;
+            
+            // Bounce in World Units (reduce bounce height to match scale?)
+            // 60px bounce is huge in 16x16 world if scale is 3 (180px screen).
+            // Let's reduce it to 20 world units.
+            const bounce = Math.abs(Math.sin(this.menuTime * 5) * 20); 
+            
+            this.player.x = worldW / 2 - this.player.width / 2;
             this.player.y = centerY - bounce;
             this.player.targetX = this.player.x;
             this.player.targetY = this.player.y;

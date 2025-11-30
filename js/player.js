@@ -4,6 +4,7 @@ import { Projectile } from './projectile.js';
 import * as UI from './ui.js';
 import { ITEM_DEFINITIONS, ITEM_SETS } from './items/itemData.js';
 import { SaveManager } from './saveManager.js';
+import { PLAYER_SIZE } from './constants.js';
 
 export const UPGRADE_CONFIG = {
     attack: { baseCost: 50, costMult: 1.5, perLevel: 1, name: "Attack Damage" },
@@ -93,13 +94,13 @@ export class Player {
         this.runLoot = {}; 
 
         // Position & Größe
-        this.width = 40;
-        this.height = 40;
-        this.x = 400 - this.width / 2; // Mitte
-        this.y = 300 - this.height / 2;
+        this.width = PLAYER_SIZE;
+        this.height = PLAYER_SIZE;
+        this.x = 0; 
+        this.y = 0;
         
         // Bewegung
-        this.speed = 400; // Pixel pro Sekunde (doppelt so schnell)
+        this.speed = 200; // Pixel pro Sekunde
         this.vx = 0;
         this.vy = 0;
         
@@ -708,9 +709,9 @@ export class Player {
 
             if (this.weapon === 'sword' || this.weapon === 'dagger' || this.weapon === 'fist') { 
                 // Nahkampf + Knockback (Fist behaves like Sword)
-                enemy.takeDamage(dmg, this);
+                enemy.takeDamage(dmg, this, map); // Pass map for knockback bounds
                 if (!enemy.isBoss) { 
-                    pushBack(enemy, this, 50); 
+                    pushBack(enemy, this, 50, map ? map.currentRoom : null); 
                 }
             } else if (this.weapon === 'wand' || this.weapon === 'bow') {
                 // Fernkampf Projektil

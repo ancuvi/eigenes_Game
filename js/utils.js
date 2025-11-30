@@ -84,13 +84,25 @@ export function isPointInRect(px, py, rect) {
  * @param {object} target {x, y, width, height}
  * @param {object} source {x, y, width, height}
  * @param {number} force Pixel die geschoben werden
+ * @param {object} bounds Optional {width, height} for clamping
  */
-export function pushBack(target, source, force) {
+export function pushBack(target, source, force, bounds = null) {
     const tx = target.x + target.width / 2;
     const ty = target.y + target.height / 2;
     const sx = source.x + source.width / 2;
     const sy = source.y + source.height / 2;
     const angle = Math.atan2(ty - sy, tx - sx);
-    target.x += Math.cos(angle) * force;
-    target.y += Math.sin(angle) * force;
+    
+    let nx = target.x + Math.cos(angle) * force;
+    let ny = target.y + Math.sin(angle) * force;
+
+    if (bounds) {
+        // Simple clamp to room bounds (assuming room starts at 0,0)
+        // Ensure entity stays fully inside
+        nx = Math.max(0, Math.min(nx, bounds.width - target.width));
+        ny = Math.max(0, Math.min(ny, bounds.height - target.height));
+    }
+
+    target.x = nx;
+    target.y = ny;
 }

@@ -264,7 +264,7 @@ export class GameMap {
 
             if (parsed.items) {
                 parsed.items.forEach(i => {
-                    const it = new Item(i.x, i.y, i.type, 40, 40);
+                    const it = new Item(i.x, i.y, i.type, 20, 20); // Reduced item size
                     items.push(it);
                 });
             }
@@ -641,8 +641,13 @@ export class GameMap {
         this.currentGridY = 0;
         this.loadRoom(0, 0);
         if (this.currentRoom) {
-            this.player.x = this.currentRoom.width / 2 - this.player.width / 2;
-            this.player.y = this.currentRoom.height / 2 - this.player.height / 2;
+            const cols = this.currentRoom.tiles[0].length;
+            const rows = this.currentRoom.tiles.length;
+            const spawnX = Math.floor(cols / 2);
+            const spawnY = Math.floor(rows / 2);
+            
+            this.player.x = spawnX * TILE_SIZE;
+            this.player.y = spawnY * TILE_SIZE;
         }
     }
 

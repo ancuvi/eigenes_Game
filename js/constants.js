@@ -1,4 +1,11 @@
 export const TILE_SIZE = 16;
+export const RENDER_SCALE = 3; // Skaliert 16px Tiles auf 48px Bildschirmgröße
+
+// Entity Sizes (in World Pixels)
+export const PLAYER_SIZE = 16;
+export const ENEMY_SIZE = 16;
+export const MINIBOSS_SIZE = 24;
+export const BOSS_SIZE = 40;
 
 export const TILE = {
     FLOOR: 0,
