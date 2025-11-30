@@ -63,6 +63,13 @@ class Game {
         this.selectedItem = null; // { itemId, rarity }
         this.selectedSlot = null; // 'weapon', etc. if equipped item selected
 
+        this.itemIcons = {
+            weapon: '⚔️',
+            armor: '🛡️',
+            helmet: '🪖',
+            accessory: '💍'
+        };
+
         this.uiElements = [
             document.getElementById('log-toggle'),
             document.getElementById('map-toggle'),
@@ -249,8 +256,9 @@ class Game {
 
                 const card = document.createElement('div');
                 card.className = `item-card rarity-${rarity}`;
+                const icon = this.itemIcons[def.type] || '❓';
                 card.innerHTML = `
-                    <div class="item-icon">⚔️</div>
+                    <div class="item-icon">${icon}</div>
                     <div class="item-count">${count}</div>
                 `;
                 card.title = `${rarity.toUpperCase()} ${def.name}`;
@@ -301,7 +309,9 @@ class Game {
             
             const item = equip[slot];
             if (item) {
-                el.innerHTML = '⚔️'; // Placeholder Icon
+                const def = ITEM_DEFINITIONS[item.itemId];
+                const icon = def ? (this.itemIcons[def.type] || '❓') : '❓';
+                el.innerHTML = icon;
                 el.className = `slot-content filled rarity-${item.rarity}`;
                 // We could use rarity color border here if CSS supports it on slot-content
             } else {
