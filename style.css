@@ -62,35 +62,268 @@ canvas {
     height: 100%;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end; /* Button unten */
+    justify-content: center;
     align-items: center;
     z-index: 100;
-    padding-bottom: 20%; 
-    pointer-events: none; /* Klicks gehen durch, Button braucht auto */
+    background: rgba(26, 26, 26, 0.95);
+    backdrop-filter: blur(5px);
 }
 
 #start-screen.hidden {
     display: none;
 }
 
-#start-btn {
-    pointer-events: auto;
-    padding: 20px 40px;
-    font-size: 2rem;
-    background: #4caf50;
-    color: white;
-    border: 2px solid #fff;
-    border-radius: 10px;
-    cursor: pointer;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    transition: transform 0.2s, background 0.2s;
-    font-family: inherit;
-    font-weight: bold;
+.game-title {
+    font-size: 3rem;
+    color: #4caf50;
+    text-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+    margin-bottom: 50px;
+    text-align: center;
 }
 
-#start-btn:hover {
-    transform: scale(1.05);
+.menu-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+    width: 300px;
+}
+
+.menu-btn {
+    width: 100%;
+    padding: 15px;
+    font-family: inherit;
+    font-weight: bold;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.menu-btn.primary {
+    background: #4caf50;
+    color: white;
+    font-size: 1.5rem;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.menu-btn.primary:hover {
     background: #45a049;
+    transform: scale(1.05);
+}
+
+.menu-btn.secondary {
+    background: #333;
+    color: #ccc;
+    font-size: 1.1rem;
+    border: 1px solid #555;
+    border-radius: 6px;
+}
+
+.menu-btn.secondary:hover {
+    background: #444;
+    border-color: #777;
+    color: #fff;
+}
+
+/* Modals */
+.modal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    z-index: 200;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 1;
+    transition: opacity 0.3s;
+}
+
+.modal.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.modal-content {
+    background: #1a1a1a;
+    border: 2px solid #444;
+    border-radius: 12px;
+    padding: 20px;
+    width: 400px;
+    max-width: 90%;
+    max-height: 90%;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 30px rgba(0,0,0,0.8);
+}
+
+.modal-content.large {
+    width: 800px;
+    height: 600px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 10px;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: #4caf50;
+}
+
+.close-modal {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 2rem;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close-modal:hover {
+    color: #fff;
+}
+
+/* Inventory Styles */
+.inventory-layout {
+    display: flex;
+    gap: 20px;
+    flex: 1;
+    overflow: hidden;
+}
+
+#inventory-grid {
+    flex: 2;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    grid-auto-rows: 70px;
+    gap: 10px;
+    overflow-y: auto;
+    padding: 5px;
+    border-right: 1px solid #333;
+}
+
+#item-details-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    background: #111;
+    border-radius: 8px;
+}
+
+.item-card {
+    background: #222;
+    border: 2px solid #444;
+    border-radius: 6px;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.1s;
+}
+
+.item-card:hover {
+    transform: scale(1.05);
+    z-index: 1;
+}
+
+.item-card.selected {
+    border-color: #fff;
+    box-shadow: 0 0 10px rgba(255,255,255,0.3);
+}
+
+.item-count {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 4px;
+}
+
+/* Rarities */
+.rarity-grey { border-color: #9e9e9e; color: #9e9e9e; }
+.rarity-green { border-color: #4caf50; color: #4caf50; }
+.rarity-blue { border-color: #2196f3; color: #2196f3; }
+.rarity-purple { border-color: #9c27b0; color: #9c27b0; }
+.rarity-gold { border-color: #ffc107; color: #ffc107; }
+.rarity-red { border-color: #f44336; color: #f44336; }
+
+/* Item Details */
+#selected-item-info {
+    flex: 1;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.item-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.item-actions button {
+    flex: 1;
+    padding: 10px;
+    background: #333;
+    color: #fff;
+    border: 1px solid #555;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.item-actions button:hover:not(:disabled) {
+    background: #444;
+}
+
+.item-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Stage Select List */
+#stage-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    max-height: 400px;
+}
+
+.stage-btn {
+    padding: 15px;
+    background: #222;
+    border: 1px solid #444;
+    color: #ccc;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.stage-btn:hover {
+    background: #333;
+    color: #fff;
+}
+
+.stage-btn.locked {
+    opacity: 0.5;
+    pointer-events: none;
+    background: #111;
 }
 
 /* Stats im Header (Rechts) */
@@ -189,6 +422,7 @@ canvas {
     #nav-up { top: 50px; }
     #nav-down { bottom: 120px; }
     #combat-log { font-size: 12px; height: 15%; }
+    .modal-content.large { width: 100%; height: 100%; border-radius: 0; border: none; }
 }
 
 /* Buttons (schon definiert oben, nur positionierung entfernt/angepasst) */

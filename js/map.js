@@ -7,6 +7,8 @@ import { BalanceManager } from './balanceManager.js';
 import * as UI from './ui.js';
 import PATTERN_REGISTRY, { makeFallbackPattern, DOOR_MASK, maskFromNeighbors } from './roomPatterns/index.js';
 import { RoomDistributionManager, FLOOR_CONFIG } from './roomDistributionManager.js';
+import { ITEM_DEFINITIONS } from './items/itemData.js';
+import { SaveManager } from './saveManager.js';
 
 // Utility: Fisher-Yates Shuffle
 function shuffleInPlace(arr) {
@@ -464,6 +466,7 @@ export class GameMap {
                 const expReward = e.expReward !== undefined ? e.expReward : (20 + e.level * 5);
                 this.player.gainGold(e.goldReward);
                 this.player.gainExp(expReward);
+                this.player.onKill(e);
                 UI.log(`${e.name} wurde besiegt! +${e.goldReward} Gold, +${expReward} EXP.`, '#90ee90');
                 
                 this.trySpawnItem(e); // Pass Enemy for rank/loot logic
@@ -502,8 +505,9 @@ export class GameMap {
                 this.player.gainGold(5); 
                 return;
             } else if (drop.type === 'gear') {
-                // Waffe basierend auf Zufall
-                type = Math.random() < 0.5 ? 'weapon_sword' : 'weapon_wand';
+                // Random Item from Definitions
+                const keys = Object.keys(ITEM_DEFINITIONS);
+                type = keys[Math.floor(Math.random() * keys.length)];
             }
             
             const item = new Item(enemy.x, enemy.y, type);
@@ -522,18 +526,32 @@ export class GameMap {
     }
 
     pickupItem(item) {
-        if (item.type === 'potion_hp') {
+        if (ITEM_DEFINITIONS[item.type]) {
+            // Add to persistent inventory
+            SaveManager.addItem(item.type, item.rarity);
+            UI.log(`${item.rarity} ${ITEM_DEFINITIONS[item.type].name} ins Inventar aufgenommen!`, '#00ff00');
+            
+            // Optional: Auto-Equip if better? For now just add to inventory to avoid overwriting loadout.
+            // Or maybe temporary equip for this run? 
+            // Let's stick to "Add to Inventory" essentially.
+            // But to keep gameplay fun without returning to menu, maybe we DO equip it if slot is empty?
+            // Player.equipItem updates stats. It doesn't save to SaveManager equipment.
+            // So this acts as a temporary power boost for the run, which matches Roguelike feel + Meta progress.
+            this.player.equipItem(item); 
+        } else if (item.type === 'potion_hp') {
             this.player.heal(30);
             UI.log("Trank gefunden! +30 HP", "#00ff00");
-        } else if (item.type === 'weapon_sword') {
-            this.player.switchWeapon('sword');
-            UI.log("Schwert ausgerüstet!", "#ffff00");
-        } else if (item.type === 'weapon_wand') {
-            this.player.switchWeapon('wand');
-            UI.log("Zauberstab ausgerüstet!", "#00ffff");
         } else if (item.type === 'next_floor') {
             this.advanceFloor();
             return;
+        } else if (item.type === 'weapon_sword') {
+            // Legacy Fallback
+            this.player.switchWeapon('sword');
+            UI.log("Altes Schwert ausgerüstet!", "#ffff00");
+        } else if (item.type === 'weapon_wand') {
+            // Legacy Fallback
+            this.player.switchWeapon('wand');
+            UI.log("Alter Zauberstab ausgerüstet!", "#00ffff");
         }
     }
 

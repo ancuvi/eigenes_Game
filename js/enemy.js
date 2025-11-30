@@ -52,10 +52,26 @@ export class Enemy {
         this.target = null;
         this.telegraphTimer = 0;
         this.attackWindup = 0.5;
+        
+        this.statusEffects = {
+            stun: { timer: 0 },
+            slow: { timer: 0, strength: 0 }
+        };
     }
 
     update(dt, player, map) {
         if (this.isDead()) return;
+
+        // Process Status Effects
+        if (this.statusEffects.stun.timer > 0) {
+            this.statusEffects.stun.timer -= dt;
+            return; // Stunned: No movement, no attack
+        }
+        if (this.statusEffects.slow.timer > 0) {
+            this.statusEffects.slow.timer -= dt;
+        } else {
+            this.statusEffects.slow.strength = 0;
+        }
 
         // Cooldown
         if (this.attackCooldown > 0) {
@@ -117,12 +133,26 @@ export class Enemy {
     }
 
     moveTowards(tx, ty, dt) {
-        const moveDist = this.speed * dt;
+        let speed = this.speed;
+        if (this.statusEffects.slow.timer > 0) {
+            speed *= (1 - this.statusEffects.slow.strength);
+        }
+        
+        const moveDist = speed * dt;
         const dirX = tx - this.x;
         const dirY = ty - this.y;
         const len = Math.max(1, Math.sqrt(dirX * dirX + dirY * dirY));
         this.x += (dirX / len) * moveDist;
         this.y += (dirY / len) * moveDist;
+    }
+
+    applyStatus(type, duration, strength = 0) {
+        if (type === 'stun') {
+            this.statusEffects.stun.timer = Math.max(this.statusEffects.stun.timer, duration);
+        } else if (type === 'slow') {
+            this.statusEffects.slow.timer = Math.max(this.statusEffects.slow.timer, duration);
+            this.statusEffects.slow.strength = Math.max(this.statusEffects.slow.strength, strength);
+        }
     }
 
     performMeleeAttack(player) {
@@ -149,6 +179,26 @@ export class Enemy {
         const effective = Math.max(0, amount - (this.defense || 0));
         this.hp -= effective;
         if (this.hp < 0) this.hp = 0;
+        
+        // On Hit Effects from Attacker
+        if (attacker && attacker.constructor.name === 'Player') {
+            // Knockback
+            if (attacker.knockbackChance > 0 && Math.random() < attacker.knockbackChance) {
+                pushBack(this, attacker, 50);
+            }
+            // Stun
+            if (attacker.stunChance > 0 && Math.random() < attacker.stunChance) {
+                const duration = attacker.stunDuration || 1.0;
+                this.applyStatus('stun', duration);
+            }
+            // Slow
+            if (attacker.slowChance > 0 && Math.random() < attacker.slowChance) {
+                const duration = 2.0; // Fixed duration for now
+                const strength = attacker.slowStrength || 0.2;
+                this.applyStatus('slow', duration, strength);
+            }
+        }
+        
         // Aggro setzen, wenn angegriffen
         if (attacker && !this.isDead()) {
             this.isAggro = true;

@@ -8,6 +8,9 @@ import { Camera } from './camera.js';
 import { MapOverlay } from './mapOverlay.js';
 import { StatsOverlay } from './statsOverlay.js';
 import * as UI from './ui.js';
+import { SaveManager } from './saveManager.js';
+import { ITEM_DEFINITIONS, RARITY_LEVELS } from './items/itemData.js';
+import { Item } from './item.js';
 
 class Game {
     constructor() {
@@ -18,37 +21,43 @@ class Game {
         this.map = new GameMap(this.player, this.canvas); 
         this.map.onStageComplete = (stage) => this.handleStageComplete(stage);
         
-        // InputHandler nur aktivieren, wenn Spiel läuft? 
-        // Aktuell fängt er Events auf dem Canvas ab. Im Start-Screen ignorieren wir das einfach im Update.
         this.inputHandler = new InputHandler(this.canvas, this.player, this.map);
-        
-        // Kamera (wird in init erstellt)
         this.camera = null;
-        
-        // Renderer bekommt Kamera später
         this.renderer = null; 
 
         this.lastTime = 0;
         this.isRunning = false;
         this.mapOverlay = null;
         this.statsOverlay = null;
-        this.isAutoMode = false; // Auto-Pilot Status
-        this.timeScale = 1; // 1x Speed
+        this.isAutoMode = false;
+        this.timeScale = 1;
         
         // Progression
+        this.saveData = SaveManager.load();
         this.currentStage = 1;
         this.currentFloor = 1;
         this.selectedStage = 1;
-        this.unlockedStage = parseInt(localStorage.getItem('unlockedStage') || '1', 10);
+        this.unlockedStage = this.saveData.unlockedStages;
 
         // State Management
-        this.gameState = 'START'; // 'START' oder 'PLAYING'
-        this.menuTime = 0; // Für Animationen im Menü
+        this.gameState = 'START'; 
+        this.menuTime = 0;
 
         // UI Elements
         this.startScreen = document.getElementById('start-screen');
         this.startBtn = document.getElementById('start-btn');
-        this.stageButtons = Array.from(document.querySelectorAll('.stage-btn'));
+        this.stageSelectBtn = document.getElementById('stage-select-btn');
+        this.inventoryBtn = document.getElementById('inventory-btn');
+        
+        // Modals
+        this.stageModal = document.getElementById('stage-modal');
+        this.inventoryModal = document.getElementById('inventory-modal');
+        this.inventoryGrid = document.getElementById('inventory-grid');
+        this.stageList = document.getElementById('stage-list');
+        
+        // Inventory UI State
+        this.selectedItem = null; // { itemId, rarity }
+
         this.uiElements = [
             document.getElementById('map-toggle'),
             document.getElementById('stats-toggle'),
@@ -57,7 +66,6 @@ class Game {
             document.getElementById('combat-log')
         ];
 
-        // Resize Handling
         window.addEventListener('resize', () => this.handleResize());
     }
 
@@ -76,8 +84,6 @@ class Game {
             this.camera.height = this.canvas.height;
         }
         
-        console.log(`Resized to ${this.canvas.width}x${this.canvas.height}`);
-        
         if (!this.isRunning && this.renderer) {
             this.renderer.draw();
         }
@@ -85,52 +91,232 @@ class Game {
 
     init() {
         console.log('Initializing Game...');
-        
-        // 1. Größe korrekt setzen
         this.handleResize();
         
-        // Kamera erstellen
         this.camera = new Camera(this.canvas.width, this.canvas.height);
-        this.inputHandler.camera = this.camera; // Link Camera to InputHandler
+        this.inputHandler.camera = this.camera;
         this.renderer = new Renderer(this.canvas, this.player, this.map, this.inputHandler, this.camera);
 
-        // 2. Player initial in die Mitte setzen
         this.centerPlayer();
 
-        // 3. Map Overlay & Stats Overlay vorbereiten (aber noch nicht anzeigen/nutzen)
         this.mapOverlay = new MapOverlay(this.map);
         this.statsOverlay = new StatsOverlay(this.player);
 
-        // 4. Navigation UI Events binden (entfernt, da Canvas-basiert)
-        // this.bindNavigation();
+        this.bindEvents();
+        this.loadPlayerEquipment();
 
-        // 5. Start Button binden
-        if (this.startBtn) {
-            this.startBtn.addEventListener('click', () => this.startGame());
-        }
-        this.bindStageButtons();
-        
-        // Auto Button
-        const autoBtn = document.getElementById('auto-btn');
-        if (autoBtn) {
-            autoBtn.addEventListener('click', () => this.toggleAutoMode());
-        }
-
-        // 6. UI verstecken & Start Screen zeigen
         this.toggleUI(false);
         if (this.startScreen) this.startScreen.classList.remove('hidden');
 
-        // 7. Start Loop
         this.isRunning = true;
         this.lastTime = performance.now();
         requestAnimationFrame((ts) => this.gameLoop(ts));
+    }
+
+    bindEvents() {
+        // Main Menu Buttons
+        if (this.startBtn) this.startBtn.addEventListener('click', () => this.startGame());
+        
+        if (this.inventoryBtn) {
+            this.inventoryBtn.addEventListener('click', () => {
+                this.renderInventory();
+                this.toggleModal(this.inventoryModal, true);
+            });
+        }
+        
+        if (this.stageSelectBtn) {
+            this.stageSelectBtn.addEventListener('click', () => {
+                this.renderStageSelect();
+                this.toggleModal(this.stageModal, true);
+            });
+        }
+
+        // Close Modals
+        document.querySelectorAll('.close-modal').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const targetId = e.target.dataset.target;
+                const modal = document.getElementById(targetId);
+                if (modal) this.toggleModal(modal, false);
+            });
+        });
+
+        // Inventory Actions
+        document.getElementById('equip-btn').addEventListener('click', () => this.handleEquip());
+        document.getElementById('merge-btn').addEventListener('click', () => this.handleMerge());
+
+        // Auto Button
+        const autoBtn = document.getElementById('auto-btn');
+        if (autoBtn) autoBtn.addEventListener('click', () => this.toggleAutoMode());
+    }
+
+    loadPlayerEquipment() {
+        const equip = this.saveData.equipment;
+        let hasGear = false;
+        for (const slot in equip) {
+            const data = equip[slot];
+            if (data) {
+                const item = new Item(0, 0, data.itemId);
+                item.rarity = data.rarity;
+                this.player.equipItem(item);
+                hasGear = true;
+            }
+        }
+        // Ensure stats are recalculated even if no gear, to set defaults correctly
+        this.player.recalculateStats();
+    }
+
+    toggleModal(modal, show) {
+        if (show) {
+            modal.classList.remove('hidden');
+        } else {
+            modal.classList.add('hidden');
+        }
+    }
+
+    renderInventory() {
+        this.inventoryGrid.innerHTML = '';
+        const inv = SaveManager.getInventory();
+        
+        for (const itemId in inv) {
+            const def = ITEM_DEFINITIONS[itemId];
+            if (!def) continue;
+            
+            for (const rarity in inv[itemId]) {
+                const count = inv[itemId][rarity];
+                if (count <= 0) continue;
+
+                const card = document.createElement('div');
+                card.className = `item-card rarity-${rarity}`;
+                card.innerHTML = `
+                    <div class="item-icon">⚔️</div> <!-- Placeholder Icon -->
+                    <div class="item-count">${count}</div>
+                `;
+                // Simple tooltip logic via title for now
+                card.title = `${rarity.toUpperCase()} ${def.name}`;
+                
+                card.addEventListener('click', () => {
+                    document.querySelectorAll('.item-card').forEach(c => c.classList.remove('selected'));
+                    card.classList.add('selected');
+                    this.selectItem(itemId, rarity, count);
+                });
+                
+                this.inventoryGrid.appendChild(card);
+            }
+        }
+    }
+
+    selectItem(itemId, rarity, count) {
+        this.selectedItem = { itemId, rarity, count };
+        const def = ITEM_DEFINITIONS[itemId];
+        
+        // Show Stats
+        const dummyItem = new Item(0, 0, itemId);
+        dummyItem.rarity = rarity;
+        const stats = dummyItem.getStats();
+        
+        let statText = `<strong>${def.name}</strong> (${rarity})<br>`;
+        statText += `<small>${def.set} Set</small><br><br>`;
+        
+        for (const key in stats) {
+            statText += `${key}: ${stats[key]}<br>`;
+        }
+        
+        document.getElementById('selected-item-info').innerHTML = statText;
+        
+        // Update Buttons
+        const equipBtn = document.getElementById('equip-btn');
+        const mergeBtn = document.getElementById('merge-btn');
+        
+        equipBtn.disabled = false;
+        
+        // Merge Logic
+        const rarityIdx = RARITY_LEVELS.indexOf(rarity);
+        const canMerge = count >= 3 && rarityIdx < RARITY_LEVELS.length - 1;
+        mergeBtn.disabled = !canMerge;
+        mergeBtn.textContent = canMerge ? `Merge to ${RARITY_LEVELS[rarityIdx + 1]}` : "Merge (3 required)";
+    }
+
+    handleEquip() {
+        if (!this.selectedItem) return;
+        const { itemId, rarity } = this.selectedItem;
+        const def = ITEM_DEFINITIONS[itemId];
+        
+        // Slot
+        let slot = null;
+        if (def.type === 'weapon') slot = 'weapon';
+        if (def.type === 'armor') slot = 'armor';
+        if (def.type === 'helmet') slot = 'helmet';
+        if (def.type === 'accessory') slot = 'accessory';
+        
+        if (slot) {
+            SaveManager.equipItem(slot, itemId, rarity);
+            this.saveData = SaveManager.load(); // Reload to sync
+            
+            // Update Player
+            const item = new Item(0, 0, itemId);
+            item.rarity = rarity;
+            this.player.equipItem(item);
+            
+            UI.log(`Equipped ${def.name}!`);
+        }
+    }
+
+    handleMerge() {
+        if (!this.selectedItem) return;
+        const { itemId, rarity, count } = this.selectedItem;
+        const rarityIdx = RARITY_LEVELS.indexOf(rarity);
+        
+        if (count >= 3 && rarityIdx < RARITY_LEVELS.length - 1) {
+            const nextRarity = RARITY_LEVELS[rarityIdx + 1];
+            
+            SaveManager.removeItem(itemId, rarity, 3);
+            SaveManager.addItem(itemId, nextRarity);
+            
+            this.saveData = SaveManager.load();
+            this.renderInventory(); // Refresh
+            
+            // Clear selection
+            this.selectedItem = null;
+            document.getElementById('selected-item-info').innerHTML = 'Select an item...';
+            document.getElementById('equip-btn').disabled = true;
+            document.getElementById('merge-btn').disabled = true;
+            
+            UI.log(`Merged to ${nextRarity}!`);
+        }
+    }
+
+    renderStageSelect() {
+        this.stageList.innerHTML = '';
+        for (let i = 1; i <= 5; i++) {
+            const btn = document.createElement('div');
+            btn.className = 'stage-btn';
+            btn.textContent = `Stage ${i}`;
+            
+            if (i > this.unlockedStage) {
+                btn.classList.add('locked');
+                btn.textContent += ' (Locked)';
+            }
+            
+            if (i === this.selectedStage) {
+                btn.style.border = '1px solid #4caf50';
+                btn.style.color = '#4caf50';
+            }
+            
+            btn.addEventListener('click', () => {
+                if (i <= this.unlockedStage) {
+                    this.selectedStage = i;
+                    this.renderStageSelect(); // Refresh highlight
+                }
+            });
+            
+            this.stageList.appendChild(btn);
+        }
     }
 
     startGame() {
         console.log('Game Started!');
         this.gameState = 'PLAYING';
         
-        // Start Screen weg, UI her
         if (this.startScreen) this.startScreen.classList.add('hidden');
         this.toggleUI(true);
         
@@ -144,7 +330,6 @@ class Game {
         this.map.currentGridX = 0;
         this.map.currentGridY = 0;
 
-        // Map laden (Gegner spawnen) falls noch leer
         if (!this.map.currentRoom) {
             this.map.loadRoom(0, 0);
         }
@@ -161,42 +346,8 @@ class Game {
     }
 
     toggleUI(show) {
-        const display = show ? '' : 'none'; // '' fällt auf default zurück (block/flex/etc via CSS)
-        // Aber manche sind flex, manche block. 'none' versteckt, '' entfernt inline style.
-        // Wenn CSS Klassen display regeln, reicht style.display = '' oft nicht, wenn wir vorher 'none' gesetzt haben.
-        // Besser: explizit setzen oder css klassen togglen.
-        // Da die Elemente im HTML/CSS definiert sind, reicht es, wenn wir 'none' entfernen, 
-        // dann greift wieder die CSS Regel.
-        
         this.uiElements.forEach(el => {
             if (el) el.style.display = show ? '' : 'none';
-        });
-        
-        // Nav Overlay braucht spezielle Behandlung, da es flex ist im CSS
-        // Wenn wir style.display = '' setzen, greift CSS #nav-overlay { ... }
-        // Das passt.
-    }
-
-    bindStageButtons() {
-        if (!this.stageButtons || this.stageButtons.length === 0) return;
-        this.stageButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const s = parseInt(btn.dataset.stage, 10);
-                if (s > this.unlockedStage) return;
-                this.selectedStage = s;
-                this.updateStageButtons();
-            });
-        });
-        this.updateStageButtons();
-    }
-
-    updateStageButtons() {
-        this.stageButtons.forEach(btn => {
-            const s = parseInt(btn.dataset.stage, 10);
-            const locked = s > this.unlockedStage;
-            btn.disabled = locked;
-            btn.style.display = locked ? 'none' : '';
-            btn.classList.toggle('active', s === this.selectedStage);
         });
     }
 
@@ -204,14 +355,17 @@ class Game {
         const newlyUnlocked = Math.min(stage + 1, 5);
         if (newlyUnlocked > this.unlockedStage) {
             this.unlockedStage = newlyUnlocked;
-            localStorage.setItem('unlockedStage', String(this.unlockedStage));
+            // Update Save
+            const save = SaveManager.load();
+            save.unlockedStages = this.unlockedStage;
+            SaveManager.save(save);
+            this.saveData = save;
         }
-        this.selectedStage = Math.min(this.unlockedStage, stage + 1);
+        
         this.gameState = 'START';
         this.toggleUI(false);
         if (this.startScreen) this.startScreen.classList.remove('hidden');
-        this.updateStageButtons();
-        UI.log(`Stage ${stage} abgeschlossen! Stage ${this.unlockedStage} freigeschaltet.`, '#ffd700');
+        UI.log(`Stage ${stage} abgeschlossen!`, '#ffd700');
     }
 
     gameLoop(timestamp) {
@@ -221,7 +375,6 @@ class Game {
         this.lastTime = timestamp;
         const safeDt = Math.min(dt, 0.1);
 
-        // Bei 10x Speed: Update mehrmals pro Frame ausführen
         const loops = Math.floor(this.timeScale);
         for (let i = 0; i < loops; i++) {
             this.update(safeDt);
@@ -234,7 +387,6 @@ class Game {
 
     update(dt) {
         if (this.gameState === 'START') {
-            // Animation für Start Screen
             this.menuTime += dt;
             const centerY = this.canvas.height / 2 - this.player.height / 2;
             const bounce = Math.abs(Math.sin(this.menuTime * 5) * 60); 
@@ -246,21 +398,16 @@ class Game {
             return;
         }
 
-        // PLAYING State
-        
-        // Auto-Pilot Logic
         if (this.isAutoMode) {
             this.player.updateAutoPilot(this.map, dt);
         }
 
         this.player.update(dt);
         
-        // Kamera Update
         if (this.map.currentRoom) {
             this.camera.update(this.player, this.map.currentRoom.width, this.map.currentRoom.height);
         }
         
-        // Auto-Attack triggern (auch im Auto-Mode relevant)
         this.player.autoAttack(dt, this.map.getEnemies(), this.map);
         
         this.map.update(dt);
@@ -281,48 +428,40 @@ class Game {
         this.timeScale = 1;
         this.updateAutoButton();
 
-        // Reset Player (behält Gold/XP)
         this.player.reset();
         
-        // Reset Progression
         this.currentStage = 1;
         this.currentFloor = 1;
         
-        // Reset Map (Gegner weg, alles frisch)
         this.map.grid = {}; 
-        this.map.dungeonLayout = {}; // Reset Dungeon Layout too!
+        this.map.dungeonLayout = {}; 
         this.map.currentGridX = 0;
         this.map.currentGridY = 0;
-        this.map.currentRoom = null; // Wichtig damit update nicht auf null zugreift
+        this.map.currentRoom = null; 
 
-        // Wechsel zu Start Screen
         this.gameState = 'START';
         this.toggleUI(false);
         if (this.startScreen) this.startScreen.classList.remove('hidden');
         
         this.menuTime = 0;
-        this.centerPlayer(); // Setzt Basis-Position für Animation
+        this.centerPlayer(); 
     }
 
     checkRoomClear() {
         if (this.gameState !== 'PLAYING') return;
         if (this.map.getEnemies().length === 0) {
-             // Eventuell Sound abspielen oder so
         }
     }
 
     toggleAutoMode() {
         if (!this.isAutoMode) {
-            // Aus -> An (1x)
             this.isAutoMode = true;
             this.timeScale = 1;
             UI.log("Auto-Pilot aktiviert.", "#aaa");
         } else if (this.timeScale === 1) {
-            // An (1x) -> An (10x)
             this.timeScale = 10;
             UI.log("Auto-Pilot: 10x Speed!", "#ffaa00");
         } else {
-            // An (10x) -> Aus
             this.isAutoMode = false;
             this.timeScale = 1;
             UI.log("Auto-Pilot deaktiviert.", "#aaa");
@@ -333,8 +472,6 @@ class Game {
     updateAutoButton() {
         const btn = document.getElementById('auto-btn');
         if (!btn) return;
-        
-        // Reset classes
         btn.classList.remove('auto-on', 'auto-fast');
         
         if (!this.isAutoMode) {
@@ -349,7 +486,6 @@ class Game {
     }
 }
 
-// Start
 window.addEventListener('DOMContentLoaded', () => {
     const game = new Game();
     game.init();
