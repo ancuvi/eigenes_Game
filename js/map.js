@@ -517,7 +517,7 @@ export class GameMap {
                 UI.log(`${e.name} wurde besiegt! +${e.goldReward} Gold, +${expReward} EXP.`, '#90ee90');
                 
                 this.trySpawnItem(e); // Pass Enemy for rank/loot logic
-                if (e.rank === 'boss') {
+                if (e.rank === 'boss' || e.rank === 'miniboss') { // Bossräume aller Floors öffnen Ausgang
                     this.spawnHoleToNextFloor(e.x, e.y);
                 }
 
@@ -566,7 +566,7 @@ export class GameMap {
     }
 
     spawnHoleToNextFloor(x, y) {
-        const size = 80;
+        const size = 48;
         const item = new Item(x - size/2, y - size/2, 'next_floor', size, size);
         if (this.currentRoom.items) this.currentRoom.items.push(item);
         UI.log('Ein Loch zum nächsten Floor erscheint!', '#00bfff');
