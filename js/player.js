@@ -3,9 +3,22 @@ import { getDistance, pushBack } from './utils.js';
 import { Projectile } from './projectile.js';
 import * as UI from './ui.js';
 import { ITEM_DEFINITIONS, ITEM_SETS } from './items/itemData.js';
+import { SaveManager } from './saveManager.js';
+
+export const UPGRADE_CONFIG = {
+    attack: { baseCost: 50, costMult: 1.5, perLevel: 1, name: "Attack Damage" },
+    hp: { baseCost: 50, costMult: 1.5, perLevel: 5, name: "Max HP" },
+    attackSpeed: { baseCost: 100, costMult: 1.6, perLevel: 0.01, name: "Attack Speed" }, // +1%
+    regen: { baseCost: 100, costMult: 1.6, perLevel: 0.2, name: "HP Regen" }
+};
 
 export class Player {
     constructor() {
+        // Load persistent data
+        const savedData = SaveManager.load();
+        this.gold = savedData.gold || 0;
+        this.upgrades = savedData.upgrades || { attack: 0, hp: 0, attackSpeed: 0, regen: 0 };
+        
         // Equipment
         this.equipment = {
             weapon: null,
@@ -26,7 +39,6 @@ export class Player {
         this.attackCooldownMs = 1000 / this.attackRate; // ms
         this.critChance = 0.05;
         this.critMultiplier = 1.5;
-        this.gold = 0;
         this.exp = 0;
 
         // Offensive Zusatzwerte (vorerst 0)
@@ -143,12 +155,17 @@ export class Player {
     }
 
     recalculateStats() {
-        // Reset to base + level
-        this.maxHp = this.baseMaxHp + (this.level - 1) * 25;
+        // Reset to base + level + upgrades
+        const upgHp = this.upgrades.hp * UPGRADE_CONFIG.hp.perLevel;
+        const upgAtk = this.upgrades.attack * UPGRADE_CONFIG.attack.perLevel;
+        
+        this.maxHp = this.baseMaxHp + (this.level - 1) * 25 + upgHp;
         if (this.level >= 5) this.maxHp += 20;
         
-        this.attackPower = this.baseAttackPower + (this.level - 1) * 3;
+        this.attackPower = this.baseAttackPower + (this.level - 1) * 3 + upgAtk;
         if (this.level >= 5) this.attackPower += 3;
+        
+        this.hpRegen = 1 + (this.upgrades.regen * UPGRADE_CONFIG.regen.perLevel);
         
         this.range = 60; // Default Melee
         this.weapon = 'fist';
@@ -293,7 +310,9 @@ export class Player {
         this.attackPower = Math.floor(this.attackPower * (1 + atkPercent));
         this.maxHp = Math.floor(this.maxHp * (1 + hpPercent));
         this.range = Math.floor(this.range * (1 + rangePercent));
-        this.attackRate = this.attackRate * (1 + attackSpeedPercent);
+        
+        const upgAS = this.upgrades.attackSpeed * UPGRADE_CONFIG.attackSpeed.perLevel;
+        this.attackRate = this.attackRate * (1 + attackSpeedPercent + upgAS);
         
         // Update derived
         this.updateAttackCooldown();
@@ -793,6 +812,28 @@ export class Player {
     gainGold(amount) {
         const bonus = Math.floor(amount * this.goldMultiplier);
         this.gold += bonus;
+        SaveManager.saveGold(this.gold);
+    }
+    
+    getUpgradeCost(type) {
+        const lvl = this.upgrades[type];
+        const cfg = UPGRADE_CONFIG[type];
+        if (!cfg) return 0;
+        return Math.floor(cfg.baseCost * Math.pow(cfg.costMult, lvl));
+    }
+    
+    buyUpgrade(type) {
+        const cost = this.getUpgradeCost(type);
+        if (this.gold >= cost) {
+            this.gold -= cost;
+            this.upgrades[type]++;
+            SaveManager.saveGold(this.gold);
+            SaveManager.saveUpgrades(this.upgrades);
+            this.recalculateStats();
+            UI.log(`${UPGRADE_CONFIG[type].name} auf Level ${this.upgrades[type]} verbessert!`, '#00ff00');
+            return true;
+        }
+        return false;
     }
 
     gainExp(amount) {

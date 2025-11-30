@@ -48,12 +48,14 @@ class Game {
         this.startBtn = document.getElementById('start-btn');
         this.stageSelectBtn = document.getElementById('stage-select-btn');
         this.inventoryBtn = document.getElementById('inventory-btn');
+        this.startUpgradeBtn = document.getElementById('start-upgrade-btn');
         this.bagBtn = document.getElementById('bag-btn'); // In-Game Bag
         this.actionBtn = document.getElementById('action-btn');
         
         // Modals
         this.stageModal = document.getElementById('stage-modal');
         this.inventoryModal = document.getElementById('inventory-modal');
+        this.startUpgradeModal = document.getElementById('start-upgrade-modal');
         this.inventoryGrid = document.getElementById('inventory-grid');
         this.stageList = document.getElementById('stage-list');
         
@@ -62,11 +64,12 @@ class Game {
         this.selectedSlot = null; // 'weapon', etc. if equipped item selected
 
         this.uiElements = [
+            document.getElementById('log-toggle'),
             document.getElementById('map-toggle'),
             document.getElementById('stats-toggle'),
             document.getElementById('stats-panel'),
             document.getElementById('nav-overlay'),
-            document.getElementById('combat-log')
+            document.getElementById('upgrade-panel')
         ];
 
         window.addEventListener('resize', () => this.handleResize());
@@ -105,6 +108,8 @@ class Game {
         this.mapOverlay = new MapOverlay(this.map);
         this.statsOverlay = new StatsOverlay(this.player);
 
+        UI.initUpgradeUI(this.player);
+
         this.bindEvents();
         this.loadPlayerEquipment();
 
@@ -131,6 +136,15 @@ class Game {
             this.stageSelectBtn.addEventListener('click', () => {
                 this.renderStageSelect();
                 this.toggleModal(this.stageModal, true);
+            });
+        }
+
+        if (this.startUpgradeBtn) {
+            this.startUpgradeBtn.addEventListener('click', () => {
+                UI.updateUpgrades(this.player);
+                const goldDisplay = document.getElementById('start-gold-display');
+                if (goldDisplay) goldDisplay.textContent = this.player.gold;
+                this.toggleModal(this.startUpgradeModal, true);
             });
         }
 

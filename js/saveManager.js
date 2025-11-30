@@ -22,9 +22,27 @@ export class SaveManager {
                 helmet: null,
                 accessory: null
             },
+            upgrades: {
+                attack: 0,
+                hp: 0,
+                attackSpeed: 0,
+                regen: 0
+            },
             unlockedStages: 1,
             gold: 0
         };
+    }
+
+    static saveUpgrades(upgrades) {
+        const data = this.load();
+        data.upgrades = upgrades;
+        this.save(data);
+    }
+    
+    static saveGold(amount) {
+        const data = this.load();
+        data.gold = amount;
+        this.save(data);
     }
 
     static addItem(itemId, rarity) {
