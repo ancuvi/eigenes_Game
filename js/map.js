@@ -5,7 +5,7 @@ import { Item } from './item.js';
 import { randomNumber, checkCollision } from './utils.js';
 import { BalanceManager } from './balanceManager.js';
 import * as UI from './ui.js';
-import ROOM_TEMPLATES from './roomPatterns.js';
+import ROOM_TEMPLATES from './roomPatterns/index.js';
 
 export class GameMap {
     constructor(player, canvas) {
