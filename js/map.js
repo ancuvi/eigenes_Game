@@ -5,7 +5,59 @@ import { Item } from './item.js';
 import { randomNumber, checkCollision } from './utils.js';
 import { BalanceManager } from './balanceManager.js';
 import * as UI from './ui.js';
-import ROOM_TEMPLATES from './roomPatterns/index.js';
+import PATTERN_REGISTRY, { makeFallbackPattern, DOOR_MASK, maskFromNeighbors } from './roomPatterns/index.js';
+
+// Utility: Fisher-Yates Shuffle
+function shuffleInPlace(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+// Utility: Difficulty label from enemy count
+function difficultyFromCount(count) {
+    if (count <= 2) return 'Easy';
+    if (count === 3) return 'Standard';
+    return 'Hard';
+}
+
+// Spawn System based on pattern spawn points + difficulty
+function spawnEnemiesInRoom(spawnPointsWorld, difficulty, stage, floor, forcedCount) {
+    const counts = { Easy: 2, Standard: 3, Hard: 4 };
+    let count = forcedCount ?? counts[difficulty] ?? counts.Standard;
+    count = Math.min(count, spawnPointsWorld.length);
+
+    const shuffled = shuffleInPlace([...spawnPointsWorld]).slice(0, count);
+    const enemies = [];
+
+    shuffled.forEach((pt) => {
+        const stats = BalanceManager.getEnemyStats(stage, floor, false, pt.isBoss);
+        const enemy = new Enemy(stats, pt.x, pt.y, pt.isBoss);
+        enemy.rank = pt.isBoss ? 'boss' : 'normal';
+        enemy.type = Math.random() < 0.3 ? 'ranged' : 'melee';
+        enemies.push(enemy);
+    });
+
+    return enemies;
+}
+
+// Pattern selection by neighbor mask with fallback carving
+function getRoomForGridPosition(dungeonLayout, gx, gy, typeOverride = null) {
+    const layout = dungeonLayout[`${gx},${gy}`];
+    const type = typeOverride || (layout.type === 'boss' ? 'Boss' : layout.type === 'start' ? 'Start' : 'Normal');
+    const requiredMask = maskFromNeighbors(layout.neighbors);
+
+    const candidates = PATTERN_REGISTRY.filter(
+        (p) => p.type === type && p.doorMask === requiredMask
+    );
+    if (candidates.length > 0) {
+        return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+
+    return makeFallbackPattern(requiredMask, type);
+}
 
 export class GameMap {
     constructor(player, canvas) {
@@ -148,74 +200,45 @@ export class GameMap {
         console.log(`Loading Room ${key} (${layout.type})...`);
 
         if (!this.grid[key]) {
-            const enemies = [];
-            const obstacles = [];
             const projectiles = [];
             const items = [];
-            let roomWidth = this.canvas.width;
-            let roomHeight = this.canvas.height;
-            let template = null;
-            
-            if (layout.type === 'start') {
-                UI.log('Ein sicherer Ort.');
-                const tpl = ROOM_TEMPLATES['1_Door'][0]; 
-                this.parseTemplate(tpl.grid, enemies, obstacles, true); 
-                roomWidth = this.lastParsedWidth;
-                roomHeight = this.lastParsedHeight;
-                
-            } else if (layout.type === 'boss') {
-                UI.log('BOSS RAUM! Mach dich bereit!', '#ff0000');
-                const templates = ROOM_TEMPLATES['BOSS'];
-                template = templates[Math.floor(Math.random() * templates.length)];
-                this.parseTemplate(template.grid, enemies, obstacles);
-                roomWidth = this.lastParsedWidth;
-                roomHeight = this.lastParsedHeight;
-                
-            } else {
-                const neighborCount = Object.keys(layout.neighbors).length;
-                
-                if (neighborCount === 1 && Math.random() < 0.1) {
-                    UI.log('Du hast einen versteckten Raum gefunden!', '#ffd700');
-                    const templates = ROOM_TEMPLATES['SECRET'];
-                    template = templates[Math.floor(Math.random() * templates.length)];
-                } else {
-                    let templateKey = '1_Door';
-                    if (neighborCount === 2) templateKey = '2_Doors';
-                    if (neighborCount === 3) templateKey = '3_Doors';
-                    if (neighborCount === 4) templateKey = '4_Doors';
-                    
-                    const templates = ROOM_TEMPLATES[templateKey];
-                    
-                    const largeTemplates = templates.filter(t => t.size !== '1x1');
-                    const normalTemplates = templates.filter(t => t.size === '1x1');
-                    
-                    if (largeTemplates.length > 0 && Math.random() < 0.2) {
-                        template = largeTemplates[Math.floor(Math.random() * largeTemplates.length)];
-                    } else {
-                        if (normalTemplates.length > 0) {
-                            template = normalTemplates[Math.floor(Math.random() * normalTemplates.length)];
-                        } else {
-                            template = templates[Math.floor(Math.random() * templates.length)];
-                        }
-                    }
-                }
-                
-                this.parseTemplate(template.grid, enemies, obstacles);
-                roomWidth = this.lastParsedWidth;
-                roomHeight = this.lastParsedHeight;
-                
+
+            // Optional Secret Roll (nur auf normale Räume)
+            const neighborCount = Object.keys(layout.neighbors).length;
+            let typeOverride = null;
+            if (layout.type !== 'start' && layout.type !== 'boss' && neighborCount === 1 && Math.random() < 0.1) {
+                UI.log('Du hast einen versteckten Raum gefunden!', '#ffd700');
+                typeOverride = 'Secret';
+            }
+
+            const pattern = getRoomForGridPosition(this.dungeonLayout, gx, gy, typeOverride);
+            UI.log(`Pattern: ${pattern.id} (mask ${pattern.doorMask})`, '#999999');
+            if (pattern.type === 'Start') UI.log('Ein sicherer Ort.');
+            if (pattern.type === 'Boss') UI.log('BOSS RAUM! Mach dich bereit!', '#ff0000');
+
+            const forceNoEnemies = (pattern.type === 'Start' || pattern.type === 'Secret');
+            const parsed = this.parsePattern(pattern, forceNoEnemies);
+
+            let enemies = [];
+            if (!forceNoEnemies) {
+                const baseCount = this.pickEnemyCount();
+                const difficulty = difficultyFromCount(baseCount);
+                enemies = spawnEnemiesInRoom(parsed.spawnPointsWorld, difficulty, this.stage, this.floor, baseCount);
                 if (enemies.length > 0) UI.log(`${enemies.length} Gegner lauern hier.`);
             }
             
             this.grid[key] = {
                 enemies: enemies,
-                obstacles: obstacles,
+                obstacles: parsed.obstacles,
                 projectiles: projectiles,
                 items: items,
                 visited: true,
                 layout: layout,
-                width: roomWidth,
-                height: roomHeight
+                width: parsed.roomW,
+                height: parsed.roomH,
+                doorMask: pattern.doorMask,
+                patternId: pattern.id,
+                patternType: pattern.type
             };
         }
 
@@ -229,7 +252,8 @@ export class GameMap {
         return BalanceManager.pickEnemyCount();
     }
     
-    parseTemplate(grid, enemies, obstacles, forceNoEnemies = false) {
+    parsePattern(pattern, forceNoEnemies = false) {
+        const { grid } = pattern;
         const rows = grid.length; 
         const cols = grid[0].length;
         
@@ -250,8 +274,8 @@ export class GameMap {
         this.lastParsedWidth = roomW;
         this.lastParsedHeight = roomH;
 
-        // Spawn Candidates für Enemies
-        const enemySpawns = [];
+        const obstacles = [];
+        const spawnPointsWorld = [];
         
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
@@ -267,58 +291,21 @@ export class GameMap {
                         height: tileH,
                         type: cell === 9 ? 'void' : 'wall'
                     });
-                } else if (!forceNoEnemies) {
-                    if (cell === 2 || cell === 5) {
-                        const isBoss = (cell === 5);
-                        // Wenn Boss Slot, immer spawnen (es gibt meist nur einen im Boss Template)
-                        if (isBoss) {
-                            const ex = x + tileW/2 - 35; 
-                            const ey = y + tileH/2 - 35;
-                            const stats = BalanceManager.getEnemyStats(this.stage, this.floor, false, true);
-                            const boss = new Enemy(stats, ex, ey, true);
-                            boss.rank = 'boss';
-                            boss.type = 'melee';
-                            enemies.push(boss);
-                        } else {
-                            // Normale Spawn-Kandidaten sammeln
-                            enemySpawns.push({x: x + tileW/2 - 20, y: y + tileH/2 - 20});
-                        }
-                    }
                 }
             }
         }
 
-        // Nun normale Gegner spawnen (Anzahl limitieren)
-        if (enemySpawns.length > 0) {
-            let count = this.pickEnemyCount();
-            // Max count cannot exceed available slots (though templates usually have enough)
-            // Oder wir erlauben weniger
-            count = Math.min(count, enemySpawns.length);
-            
-            // Shuffle Spawns
-            enemySpawns.sort(() => Math.random() - 0.5);
-            
-            for (let i = 0; i < count; i++) {
-                const pos = enemySpawns[i];
-                const isMiniboss = (Math.random() < 0.05);
-                const stats = BalanceManager.getEnemyStats(this.stage, this.floor, isMiniboss, false);
-                const enemy = new Enemy(stats, pos.x, pos.y, false);
-                
-                if (isMiniboss) {
-                    enemy.name = "Elite " + enemy.name;
-                    enemy.rank = 'miniboss';
-                    enemy.width *= 1.2;
-                    enemy.height *= 1.2;
-                } else {
-                    enemy.rank = 'normal';
-                }
-                
-                enemy.type = Math.random() < 0.3 ? 'ranged' : 'melee';
-                enemies.push(enemy);
-            }
+        if (!forceNoEnemies && pattern.potentialSpawnPoints) {
+            pattern.potentialSpawnPoints.forEach((pt) => {
+                spawnPointsWorld.push({
+                    x: wall + pt.col * tileW + tileW / 2 - 20,
+                    y: wall + pt.row * tileH + tileH / 2 - 20,
+                    isBoss: pt.isBoss
+                });
+            });
         }
         
-        return { width: roomW, height: roomH };
+        return { roomW, roomH, obstacles, spawnPointsWorld };
     }
 
     switchRoom(direction) {
@@ -363,15 +350,15 @@ export class GameMap {
     
     getDoorAt(x, y) {
         if (!this.currentRoom || this.currentRoom.enemies.length > 0) return null;
-        const layout = this.currentRoom.layout;
+        const doorMask = this.currentRoom.doorMask ?? maskFromNeighbors(this.currentRoom.layout.neighbors);
         const w = this.currentRoom.width; 
         const h = this.currentRoom.height;
         const doorSize = 100;
         
-        if (layout.neighbors.up && y <= 50 && x >= w/2 - doorSize/2 && x <= w/2 + doorSize/2) return 'up';
-        if (layout.neighbors.down && y >= h - 50 && x >= w/2 - doorSize/2 && x <= w/2 + doorSize/2) return 'down';
-        if (layout.neighbors.left && x <= 50 && y >= h/2 - doorSize/2 && y <= h/2 + doorSize/2) return 'left';
-        if (layout.neighbors.right && x >= w - 50 && y >= h/2 - doorSize/2 && y <= h/2 + doorSize/2) return 'right';
+        if ((doorMask & DOOR_MASK.NORTH) && y <= 50 && x >= w/2 - doorSize/2 && x <= w/2 + doorSize/2) return 'up';
+        if ((doorMask & DOOR_MASK.SOUTH) && y >= h - 50 && x >= w/2 - doorSize/2 && x <= w/2 + doorSize/2) return 'down';
+        if ((doorMask & DOOR_MASK.WEST) && x <= 50 && y >= h/2 - doorSize/2 && y <= h/2 + doorSize/2) return 'left';
+        if ((doorMask & DOOR_MASK.EAST) && x >= w - 50 && y >= h/2 - doorSize/2 && y <= h/2 + doorSize/2) return 'right';
         
         return null;
     }
