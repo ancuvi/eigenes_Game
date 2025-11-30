@@ -529,14 +529,19 @@ export class GameMap {
         if (ITEM_DEFINITIONS[item.type]) {
             // Add to persistent inventory
             SaveManager.addItem(item.type, item.rarity);
-            UI.log(`${item.rarity} ${ITEM_DEFINITIONS[item.type].name} ins Inventar aufgenommen!`, '#00ff00');
             
-            // Optional: Auto-Equip if better? For now just add to inventory to avoid overwriting loadout.
-            // Or maybe temporary equip for this run? 
-            // Let's stick to "Add to Inventory" essentially.
-            // But to keep gameplay fun without returning to menu, maybe we DO equip it if slot is empty?
-            // Player.equipItem updates stats. It doesn't save to SaveManager equipment.
-            // So this acts as a temporary power boost for the run, which matches Roguelike feel + Meta progress.
+            const colors = {
+                grey: '#9e9e9e',
+                green: '#4caf50',
+                blue: '#2196f3',
+                purple: '#9c27b0',
+                gold: '#ffc107',
+                red: '#f44336'
+            };
+            const color = colors[item.rarity] || '#ffffff';
+            
+            UI.log(`Gefunden: ${ITEM_DEFINITIONS[item.type].name} (${item.rarity})`, color);
+            
             this.player.equipItem(item); 
         } else if (item.type === 'potion_hp') {
             this.player.heal(30);

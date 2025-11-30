@@ -43,6 +43,24 @@
                     <h2>Inventory & Merge</h2>
                     <button class="close-modal" data-target="inventory-modal">×</button>
                 </div>
+                <div id="equipment-panel">
+                    <div class="equip-slot" data-slot="weapon">
+                        <span class="slot-label">Weapon</span>
+                        <div class="slot-content"></div>
+                    </div>
+                    <div class="equip-slot" data-slot="armor">
+                        <span class="slot-label">Armor</span>
+                        <div class="slot-content"></div>
+                    </div>
+                    <div class="equip-slot" data-slot="helmet">
+                        <span class="slot-label">Helmet</span>
+                        <div class="slot-content"></div>
+                    </div>
+                    <div class="equip-slot" data-slot="accessory">
+                        <span class="slot-label">Accessory</span>
+                        <div class="slot-content"></div>
+                    </div>
+                </div>
                 <div class="inventory-layout">
                     <div id="inventory-grid">
                         <!-- Items generated here -->
@@ -50,7 +68,7 @@
                     <div id="item-details-panel">
                         <div id="selected-item-info">Select an item...</div>
                         <div class="item-actions">
-                            <button id="equip-btn" disabled>Equip</button>
+                            <button id="action-btn" disabled>Equip</button>
                             <button id="merge-btn" disabled>Merge (3 required)</button>
                         </div>
                     </div>
@@ -63,6 +81,7 @@
             <div class="header-left">
                 <button id="map-toggle">Map</button>
                 <button id="stats-toggle">Stats</button>
+                <button id="bag-btn">Bag</button>
                 <button id="auto-btn">Auto: OFF</button>
             </div>
 

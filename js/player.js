@@ -108,7 +108,7 @@ export class Player {
         this.interactionTarget = null; // Enemy oder Resource
         this.interactionRange = this.range; // Pixel
         this.attackCooldownTimer = 0;
-        this.weapon = 'sword'; // 'sword', 'wand', 'bow'
+        this.weapon = 'fist'; // Default weapon
     }
     
     equipItem(item) {
@@ -138,7 +138,7 @@ export class Player {
         if (this.level >= 5) this.attackPower += 3;
         
         this.range = 60; // Default Melee
-        this.weapon = 'sword';
+        this.weapon = 'fist';
         this.critMultiplier = 1.5;
         this.attackRate = this.level >= 10 ? 1.2 : 1.0;
         
@@ -667,8 +667,8 @@ export class Player {
                 if (i === attacks - 1) this.dashBonusReady = false; // Consume on last hit? or first? Consume once per attack action.
             }
 
-            if (this.weapon === 'sword' || this.weapon === 'dagger') { // Dagger uses Sword logic
-                // Nahkampf + Knockback
+            if (this.weapon === 'sword' || this.weapon === 'dagger' || this.weapon === 'fist') { 
+                // Nahkampf + Knockback (Fist behaves like Sword)
                 enemy.takeDamage(dmg, this);
                 if (!enemy.isBoss) { 
                     pushBack(enemy, this, 50); 

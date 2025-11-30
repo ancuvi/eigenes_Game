@@ -54,8 +54,43 @@ export class SaveManager {
 
     static equipItem(slot, itemId, rarity) {
         const data = this.load();
-        data.equipment[slot] = { itemId, rarity };
-        this.save(data);
+        
+        // Return currently equipped item to inventory if any
+        if (data.equipment[slot]) {
+            const old = data.equipment[slot];
+            if (!data.inventory[old.itemId]) data.inventory[old.itemId] = {};
+            if (!data.inventory[old.itemId][old.rarity]) data.inventory[old.itemId][old.rarity] = 0;
+            data.inventory[old.itemId][old.rarity]++;
+        }
+
+        // Remove new item from inventory (1 count)
+        if (data.inventory[itemId] && data.inventory[itemId][rarity] > 0) {
+            data.inventory[itemId][rarity]--;
+            if (data.inventory[itemId][rarity] <= 0) {
+                delete data.inventory[itemId][rarity];
+            }
+            
+            // Equip
+            data.equipment[slot] = { itemId, rarity };
+            this.save(data);
+            return true; // Success
+        }
+        return false; // Failed (not in inventory)
+    }
+
+    static unequipItem(slot) {
+        const data = this.load();
+        if (data.equipment[slot]) {
+            const old = data.equipment[slot];
+            if (!data.inventory[old.itemId]) data.inventory[old.itemId] = {};
+            if (!data.inventory[old.itemId][old.rarity]) data.inventory[old.itemId][old.rarity] = 0;
+            data.inventory[old.itemId][old.rarity]++;
+            
+            data.equipment[slot] = null;
+            this.save(data);
+            return true;
+        }
+        return false;
     }
 
     static getInventory() {

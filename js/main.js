@@ -48,6 +48,8 @@ class Game {
         this.startBtn = document.getElementById('start-btn');
         this.stageSelectBtn = document.getElementById('stage-select-btn');
         this.inventoryBtn = document.getElementById('inventory-btn');
+        this.bagBtn = document.getElementById('bag-btn'); // In-Game Bag
+        this.actionBtn = document.getElementById('action-btn');
         
         // Modals
         this.stageModal = document.getElementById('stage-modal');
@@ -57,6 +59,7 @@ class Game {
         
         // Inventory UI State
         this.selectedItem = null; // { itemId, rarity }
+        this.selectedSlot = null; // 'weapon', etc. if equipped item selected
 
         this.uiElements = [
             document.getElementById('map-toggle'),
@@ -141,8 +144,28 @@ class Game {
         });
 
         // Inventory Actions
-        document.getElementById('equip-btn').addEventListener('click', () => this.handleEquip());
+        this.actionBtn.addEventListener('click', () => this.handleAction());
         document.getElementById('merge-btn').addEventListener('click', () => this.handleMerge());
+        
+        // Equipment Slots
+        document.querySelectorAll('.equip-slot').forEach(slotEl => {
+            slotEl.addEventListener('click', () => {
+                const slot = slotEl.dataset.slot;
+                this.selectEquippedItem(slot);
+            });
+        });
+
+        // In-Game Bag
+        if (this.bagBtn) {
+            this.bagBtn.addEventListener('click', () => {
+                this.renderInventory();
+                this.toggleModal(this.inventoryModal, true);
+                // Pause game logic? Or keep running? 
+                // Currently overlays cover screen but input logic might persist.
+                // Should probably pause input handling or game loop.
+                // For simplicity, game loop continues but you can't see.
+            });
+        }
 
         // Auto Button
         const autoBtn = document.getElementById('auto-btn');
@@ -150,18 +173,23 @@ class Game {
     }
 
     loadPlayerEquipment() {
+        // Reset Player Equipment
+        this.player.equipment = {
+            weapon: null,
+            armor: null,
+            helmet: null,
+            accessory: null
+        };
+
         const equip = this.saveData.equipment;
-        let hasGear = false;
         for (const slot in equip) {
             const data = equip[slot];
             if (data) {
                 const item = new Item(0, 0, data.itemId);
                 item.rarity = data.rarity;
                 this.player.equipItem(item);
-                hasGear = true;
             }
         }
-        // Ensure stats are recalculated even if no gear, to set defaults correctly
         this.player.recalculateStats();
     }
 
@@ -174,6 +202,8 @@ class Game {
     }
 
     renderInventory() {
+        this.renderEquipment(); // Refresh slots too
+        
         this.inventoryGrid.innerHTML = '';
         const inv = SaveManager.getInventory();
         
@@ -188,13 +218,15 @@ class Game {
                 const card = document.createElement('div');
                 card.className = `item-card rarity-${rarity}`;
                 card.innerHTML = `
-                    <div class="item-icon">⚔️</div> <!-- Placeholder Icon -->
+                    <div class="item-icon">⚔️</div>
                     <div class="item-count">${count}</div>
                 `;
-                // Simple tooltip logic via title for now
                 card.title = `${rarity.toUpperCase()} ${def.name}`;
                 
                 card.addEventListener('click', () => {
+                    // Deselect Slot UI
+                    document.querySelectorAll('.equip-slot').forEach(s => s.classList.remove('selected'));
+                    // Select Card
                     document.querySelectorAll('.item-card').forEach(c => c.classList.remove('selected'));
                     card.classList.add('selected');
                     this.selectItem(itemId, rarity, count);
@@ -205,35 +237,100 @@ class Game {
         }
     }
 
+    renderEquipment() {
+        const equip = SaveManager.getEquipment();
+        for (const slot in equip) {
+            const el = document.querySelector(`.equip-slot[data-slot="${slot}"] .slot-content`);
+            const slotEl = document.querySelector(`.equip-slot[data-slot="${slot}"]`);
+            if (!el) continue;
+            
+            slotEl.classList.remove('selected'); // Reset selection vis
+            
+            const item = equip[slot];
+            if (item) {
+                el.innerHTML = '⚔️'; // Placeholder Icon
+                el.className = `slot-content filled rarity-${item.rarity}`;
+                // We could use rarity color border here if CSS supports it on slot-content
+            } else {
+                el.innerHTML = '';
+                el.className = 'slot-content';
+            }
+        }
+    }
+
     selectItem(itemId, rarity, count) {
         this.selectedItem = { itemId, rarity, count };
-        const def = ITEM_DEFINITIONS[itemId];
+        this.selectedSlot = null; // Reset slot selection
         
-        // Show Stats
+        const def = ITEM_DEFINITIONS[itemId];
         const dummyItem = new Item(0, 0, itemId);
         dummyItem.rarity = rarity;
         const stats = dummyItem.getStats();
         
-        let statText = `<strong>${def.name}</strong> (${rarity})<br>`;
+        let statText = `<strong class="text-rarity-${rarity}">${def.name}</strong> <span class="text-rarity-${rarity}">(${rarity})</span><br>`;
         statText += `<small>${def.set} Set</small><br><br>`;
-        
         for (const key in stats) {
             statText += `${key}: ${stats[key]}<br>`;
         }
-        
         document.getElementById('selected-item-info').innerHTML = statText;
         
-        // Update Buttons
-        const equipBtn = document.getElementById('equip-btn');
+        // Update Action Button -> Equip
+        this.actionBtn.textContent = "Equip";
+        this.actionBtn.disabled = false;
+        this.actionBtn.onclick = () => this.handleEquip(); // Direct bind or use flag
+        
+        // Update Merge
         const mergeBtn = document.getElementById('merge-btn');
-        
-        equipBtn.disabled = false;
-        
-        // Merge Logic
         const rarityIdx = RARITY_LEVELS.indexOf(rarity);
         const canMerge = count >= 3 && rarityIdx < RARITY_LEVELS.length - 1;
         mergeBtn.disabled = !canMerge;
         mergeBtn.textContent = canMerge ? `Merge to ${RARITY_LEVELS[rarityIdx + 1]}` : "Merge (3 required)";
+    }
+
+    selectEquippedItem(slot) {
+        // Highlight slot
+        document.querySelectorAll('.equip-slot').forEach(s => s.classList.remove('selected'));
+        document.querySelector(`.equip-slot[data-slot="${slot}"]`).classList.add('selected');
+        document.querySelectorAll('.item-card').forEach(c => c.classList.remove('selected'));
+
+        const item = SaveManager.getEquipment()[slot];
+        this.selectedItem = null;
+        this.selectedSlot = slot;
+        
+        const mergeBtn = document.getElementById('merge-btn');
+        mergeBtn.disabled = true;
+        mergeBtn.textContent = "Merge";
+
+        if (!item) {
+            document.getElementById('selected-item-info').innerHTML = "Empty Slot";
+            this.actionBtn.textContent = "Unequip";
+            this.actionBtn.disabled = true;
+            return;
+        }
+
+        const def = ITEM_DEFINITIONS[item.itemId];
+        const dummyItem = new Item(0, 0, item.itemId);
+        dummyItem.rarity = item.rarity;
+        const stats = dummyItem.getStats();
+        
+        let statText = `<strong class="text-rarity-${item.rarity}">${def.name}</strong> <span class="text-rarity-${item.rarity}">(${item.rarity})</span> [Equipped]<br>`;
+        statText += `<small>${def.set} Set</small><br><br>`;
+        for (const key in stats) {
+            statText += `${key}: ${stats[key]}<br>`;
+        }
+        document.getElementById('selected-item-info').innerHTML = statText;
+
+        // Update Action Button -> Unequip
+        this.actionBtn.textContent = "Unequip";
+        this.actionBtn.disabled = false;
+    }
+
+    handleAction() {
+        if (this.selectedSlot) {
+            this.handleUnequip();
+        } else if (this.selectedItem) {
+            this.handleEquip();
+        }
     }
 
     handleEquip() {
@@ -241,7 +338,6 @@ class Game {
         const { itemId, rarity } = this.selectedItem;
         const def = ITEM_DEFINITIONS[itemId];
         
-        // Slot
         let slot = null;
         if (def.type === 'weapon') slot = 'weapon';
         if (def.type === 'armor') slot = 'armor';
@@ -249,15 +345,29 @@ class Game {
         if (def.type === 'accessory') slot = 'accessory';
         
         if (slot) {
-            SaveManager.equipItem(slot, itemId, rarity);
-            this.saveData = SaveManager.load(); // Reload to sync
+            if (SaveManager.equipItem(slot, itemId, rarity)) {
+                this.saveData = SaveManager.load();
+                this.loadPlayerEquipment(); // Updates player stats & equipment
+                this.renderInventory(); // Refresh UI (moves item from inv to equip)
+                UI.log(`Equipped ${def.name}!`);
+                
+                // Select the slot we just equipped to? Or clear?
+                this.selectEquippedItem(slot);
+            }
+        }
+    }
+
+    handleUnequip() {
+        if (!this.selectedSlot) return;
+        
+        if (SaveManager.unequipItem(this.selectedSlot)) {
+            this.saveData = SaveManager.load();
+            this.loadPlayerEquipment();
+            this.renderInventory();
+            UI.log(`Unequipped item!`);
             
-            // Update Player
-            const item = new Item(0, 0, itemId);
-            item.rarity = rarity;
-            this.player.equipItem(item);
-            
-            UI.log(`Equipped ${def.name}!`);
+            // Refresh selection (now empty)
+            this.selectEquippedItem(this.selectedSlot);
         }
     }
 

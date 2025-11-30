@@ -195,6 +195,52 @@ canvas {
 }
 
 /* Inventory Styles */
+#equipment-panel {
+    display: flex;
+    justify-content: space-around;
+    padding: 10px;
+    background: #111;
+    border-bottom: 2px solid #333;
+    margin-bottom: 15px;
+}
+
+.equip-slot {
+    width: 70px;
+    height: 90px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+}
+
+.slot-label {
+    font-size: 10px;
+    color: #888;
+    margin-bottom: 4px;
+}
+
+.slot-content {
+    width: 60px;
+    height: 60px;
+    background: #222;
+    border: 2px dashed #444;
+    border-radius: 6px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+}
+
+.slot-content.filled {
+    border-style: solid;
+    background: #333;
+}
+
+.equip-slot.selected .slot-content {
+    border-color: #fff;
+    box-shadow: 0 0 8px rgba(255,255,255,0.3);
+}
+
 .inventory-layout {
     display: flex;
     gap: 20px;
@@ -262,6 +308,14 @@ canvas {
 .rarity-purple { border-color: #9c27b0; color: #9c27b0; }
 .rarity-gold { border-color: #ffc107; color: #ffc107; }
 .rarity-red { border-color: #f44336; color: #f44336; }
+
+/* Text Colors */
+.text-rarity-grey { color: #9e9e9e; }
+.text-rarity-green { color: #4caf50; }
+.text-rarity-blue { color: #2196f3; }
+.text-rarity-purple { color: #9c27b0; }
+.text-rarity-gold { color: #ffc107; }
+.text-rarity-red { color: #f44336; }
 
 /* Item Details */
 #selected-item-info {
@@ -353,10 +407,58 @@ canvas {
 /* Wir müssen HTML anpassen um Buttons zu gruppieren, oder wir lassen sie direct children */
 /* Aktuell sind sie absolute, das entfernen wir. */
 
-#map-toggle, #stats-toggle {
-    position: static; /* Zurück im Flow */
-    transform: none;
-    margin: 0;
+#map-toggle, #stats-toggle, #auto-btn {
+    z-index: 20;
+    padding: 6px 12px;
+    border: 1px solid #555;
+    background: #1f1f1f;
+    color: #fff;
+    cursor: pointer;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    font-size: 12px;
+}
+
+#map-toggle:hover, #stats-toggle:hover, #auto-btn:hover {
+    background: #2b2b2b;
+}
+
+#auto-btn {
+    min-width: 80px;
+    text-align: center;
+    border-color: #d32f2f; /* Rot (Aus) */
+    color: #ffcdd2;
+}
+
+#auto-btn.auto-on {
+    border-color: #388e3c; /* Grün (An) */
+    background: #1b5e20;
+    color: #c8e6c9;
+}
+
+#auto-btn.auto-fast {
+    border-color: #ff8f00; /* Orange (10x) */
+    background: #e65100;
+    color: #fff;
+    font-weight: bold;
+    box-shadow: 0 0 8px rgba(255, 143, 0, 0.6);
+}
+
+/* Bag Button */
+#bag-btn {
+    z-index: 20;
+    padding: 6px 12px;
+    border: 1px solid #555;
+    background: #1f1f1f;
+    color: #fff;
+    cursor: pointer;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    font-size: 12px;
+}
+
+#bag-btn:hover {
+    background: #2b2b2b;
 }
 
 /* Log Unten */
