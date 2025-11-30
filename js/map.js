@@ -397,6 +397,39 @@ export class GameMap {
         return null;
     }
 
+    /**
+     * BFS über das Dungeon-Layout, um den nächsten unbesuchten Raum zu finden.
+     * startKey: `${gx},${gy}`
+     * Rückgabe: Array von Richtungen ['up','right',...], oder [] wenn nichts offen ist.
+     */
+    findPathToUnvisited(startKey) {
+        const visited = new Set();
+        const queue = [{ key: startKey, path: [] }];
+        
+        while (queue.length > 0) {
+            const { key, path } = queue.shift();
+            if (visited.has(key)) continue;
+            visited.add(key);
+            
+            // Unvisited Ziel?
+            const roomObj = this.grid[key];
+            if (!roomObj || !roomObj.visited) {
+                if (path.length > 0) return path;
+            }
+            
+            const layout = this.dungeonLayout[key];
+            if (!layout) continue;
+            const [gx, gy] = key.split(',').map(Number);
+            const neighbors = layout.neighbors || {};
+            
+            if (neighbors.up) queue.push({ key: `${gx},${gy+1}`, path: [...path, 'up'] });
+            if (neighbors.down) queue.push({ key: `${gx},${gy-1}`, path: [...path, 'down'] });
+            if (neighbors.left) queue.push({ key: `${gx-1},${gy}`, path: [...path, 'left'] });
+            if (neighbors.right) queue.push({ key: `${gx+1},${gy}`, path: [...path, 'right'] });
+        }
+        return [];
+    }
+
     update(dt) {
         if (!this.currentRoom) return;
         
@@ -482,7 +515,8 @@ export class GameMap {
     }
 
     spawnHoleToNextFloor(x, y) {
-        const item = new Item(x, y, 'next_floor');
+        const size = 80;
+        const item = new Item(x - size/2, y - size/2, 'next_floor', size, size);
         if (this.currentRoom.items) this.currentRoom.items.push(item);
         UI.log('Ein Loch zum nächsten Floor erscheint!', '#00bfff');
     }

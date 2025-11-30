@@ -206,6 +206,26 @@ export class Renderer {
                 this.ctx.beginPath();
                 this.ctx.arc(x + w/2, y + 2, 5, 0, Math.PI * 2); // Gem
                 this.ctx.fill();
+            } else if (item.type === 'next_floor') {
+                const cx = x + w/2;
+                const cy = y + h/2;
+                const radius = Math.min(w, h) / 2;
+                const grd = this.ctx.createRadialGradient(cx, cy, radius * 0.2, cx, cy, radius);
+                grd.addColorStop(0, '#111');
+                grd.addColorStop(1, 'rgba(0,0,0,0.8)');
+                this.ctx.fillStyle = grd;
+                this.ctx.beginPath();
+                this.ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.strokeStyle = '#00bfff';
+                this.ctx.lineWidth = 3;
+                this.ctx.beginPath();
+                this.ctx.arc(cx, cy, radius * 0.7, 0, Math.PI * 2);
+                this.ctx.stroke();
+                this.ctx.fillStyle = '#00bfff';
+                this.ctx.font = 'bold 14px sans-serif';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText('↓', cx, cy + 5);
             }
             
             this.ctx.shadowBlur = 0;

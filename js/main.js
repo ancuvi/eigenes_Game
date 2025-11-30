@@ -33,6 +33,7 @@ class Game {
         this.mapOverlay = null;
         this.statsOverlay = null;
         this.isAutoMode = false; // Auto-Pilot Status
+        this.timeScale = 1; // 1x Speed
         
         // Progression
         this.currentStage = 1;
@@ -220,7 +221,12 @@ class Game {
         this.lastTime = timestamp;
         const safeDt = Math.min(dt, 0.1);
 
-        this.update(safeDt);
+        // Bei 10x Speed: Update mehrmals pro Frame ausführen
+        const loops = Math.floor(this.timeScale);
+        for (let i = 0; i < loops; i++) {
+            this.update(safeDt);
+        }
+        
         this.renderer.draw();
 
         requestAnimationFrame((ts) => this.gameLoop(ts));
@@ -271,7 +277,9 @@ class Game {
     handleGameOver() {
         UI.log('DU BIST GESTORBEN! Zurück zum Start...', '#ff0000');
         
-        if (this.isAutoMode) this.toggleAutoMode(); // Reset Auto Mode
+        this.isAutoMode = false;
+        this.timeScale = 1;
+        this.updateAutoButton();
 
         // Reset Player (behält Gold/XP)
         this.player.reset();
@@ -304,13 +312,40 @@ class Game {
     }
 
     toggleAutoMode() {
-        this.isAutoMode = !this.isAutoMode;
-        const btn = document.getElementById('auto-btn');
-        if (btn) {
-            btn.textContent = this.isAutoMode ? "Auto: ON" : "Auto: OFF";
-            btn.classList.toggle('auto-on', this.isAutoMode);
+        if (!this.isAutoMode) {
+            // Aus -> An (1x)
+            this.isAutoMode = true;
+            this.timeScale = 1;
+            UI.log("Auto-Pilot aktiviert.", "#aaa");
+        } else if (this.timeScale === 1) {
+            // An (1x) -> An (10x)
+            this.timeScale = 10;
+            UI.log("Auto-Pilot: 10x Speed!", "#ffaa00");
+        } else {
+            // An (10x) -> Aus
+            this.isAutoMode = false;
+            this.timeScale = 1;
+            UI.log("Auto-Pilot deaktiviert.", "#aaa");
         }
-        UI.log(this.isAutoMode ? "Auto-Pilot aktiviert." : "Auto-Pilot deaktiviert.", "#aaa");
+        this.updateAutoButton();
+    }
+
+    updateAutoButton() {
+        const btn = document.getElementById('auto-btn');
+        if (!btn) return;
+        
+        // Reset classes
+        btn.classList.remove('auto-on', 'auto-fast');
+        
+        if (!this.isAutoMode) {
+            btn.textContent = "Auto: OFF";
+        } else if (this.timeScale === 1) {
+            btn.textContent = "Auto: ON";
+            btn.classList.add('auto-on');
+        } else {
+            btn.textContent = "Auto: 10x";
+            btn.classList.add('auto-on', 'auto-fast');
+        }
     }
 }
 

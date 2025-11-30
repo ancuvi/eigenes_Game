@@ -58,7 +58,7 @@ export class Player {
         this.y = 300 - this.height / 2;
         
         // Bewegung
-        this.speed = 200; // Pixel pro Sekunde
+        this.speed = 400; // Pixel pro Sekunde (doppelt so schnell)
         this.vx = 0;
         this.vy = 0;
         
@@ -71,6 +71,12 @@ export class Player {
         this.dashRange = 100;
         this.dashSpeed = 480;
         this.dashBonusReady = false;
+
+        // Autopilot Stuck Detection
+        this._lastAutoCheck = { x: this.x, y: this.y };
+        this._stuckTimer = 0;
+        this._stuckSide = 1;
+        this.avoidanceTimer = 0; // Wie lange wir das Hindernis umgehen, bevor wir das Ziel neu setzen
 
         // Interaktion
         this.interactionTarget = null; // Enemy oder Resource
@@ -110,6 +116,11 @@ export class Player {
     }
 
     update(dt) {
+        // Avoidance Timer reduzieren
+        if (this.avoidanceTimer > 0) {
+            this.avoidanceTimer -= dt;
+        }
+
         // Cooldown reduzieren
         if (this.attackCooldownTimer > 0) {
             this.attackCooldownTimer -= dt;
@@ -169,19 +180,73 @@ export class Player {
                  this.setTarget(tx, ty, this.interactionTarget);
              }
         }
+
+        // Stuck-Detection für Autopilot: wenn wir im Auto-Mode kaum vorankommen, einen kleinen Sidestep machen
+        this.handleAutoStuck(dt);
+    }
+
+    handleAutoStuck(dt) {
+        if (this.moveMode !== 'auto' || !this.isMoving) {
+            this._stuckTimer = 0;
+            this._lastAutoCheck.x = this.x;
+            this._lastAutoCheck.y = this.y;
+            return;
+        }
+
+        const moved = getDistance(this.x, this.y, this._lastAutoCheck.x, this._lastAutoCheck.y);
+        // Schwellenwert etwas anpassen, da bei sehr hohen FPS 1px vllt unterschritten wird? 
+        // Nein, bei dt Summe sollte es passen. Aber machen wir es etwas toleranter.
+        if (moved < 2) {
+            this._stuckTimer += dt;
+            if (this._stuckTimer > 0.6) {
+                // Wenn wir ein Ziel haben, versuche seitlich am Hindernis vorbei zu laufen
+                if (this.interactionTarget && !this.interactionTarget.isDead()) {
+                    const tx = this.interactionTarget.x + this.interactionTarget.width/2;
+                    const ty = this.interactionTarget.y + this.interactionTarget.height/2;
+                    const dx = tx - (this.x + this.width/2);
+                    const dy = ty - (this.y + this.height/2);
+                    const len = Math.max(1e-3, Math.sqrt(dx*dx + dy*dy));
+                    // Perpendicular Offset (links/rechts abwechseln)
+                    const offX = (dy / len) * 140 * this._stuckSide;
+                    const offY = (-dx / len) * 140 * this._stuckSide;
+                    this._stuckSide *= -1;
+                    this.setTarget(tx + offX, ty + offY, this.interactionTarget);
+                    // Wir geben dem Spieler Zeit, diesen Ausweichpfad zu laufen
+                    this.avoidanceTimer = 1.5; 
+                } else {
+                    // kleiner Jitter
+                    const jitter = 120;
+                    const nx = this.x + (Math.random() - 0.5) * jitter;
+                    const ny = this.y + (Math.random() - 0.5) * jitter;
+                    this.setTarget(nx, ny, null);
+                    this.avoidanceTimer = 0.5;
+                }
+                this._stuckTimer = 0;
+            }
+        } else {
+            this._stuckTimer = 0;
+        }
+
+        this._lastAutoCheck.x = this.x;
+        this._lastAutoCheck.y = this.y;
     }
     
     updateAutoPilot(map, dt) {
+        // Wenn wir gerade einem Hindernis ausweichen, nicht das Ziel überschreiben!
+        if (this.avoidanceTimer > 0) return;
+
         const cx = this.x + this.width/2;
         const cy = this.y + this.height/2;
 
-        // 1. Items sammeln (Höchste Prio)
+        // 1. Items sammeln (Höchste Prio) – Loch (next_floor) bevorzugen
         const items = map.getItems();
         if (items.length > 0) {
-            // Finde nächstes Item
             let nearestItem = null;
             let minDist = Infinity;
-            items.forEach(item => {
+            // Next floor hat Vorrang
+            const holes = items.filter(i => i.type === 'next_floor');
+            const searchList = holes.length > 0 ? holes : items;
+            searchList.forEach(item => {
                 const d = getDistance(cx, cy, item.x + item.width/2, item.y + item.height/2);
                 if (d < minDist) {
                     minDist = d;
@@ -190,7 +255,6 @@ export class Player {
             });
             
             if (nearestItem) {
-                // Laufe zum Item
                 this.setTarget(nearestItem.x + nearestItem.width/2, nearestItem.y + nearestItem.height/2, null);
                 return;
             }
@@ -233,29 +297,41 @@ export class Player {
             return;
         }
 
-        // 3. Raumwechsel (Wenn leer)
+        // 3. Raumwechsel (Wenn leer) – nur zu unbekannten Räumen, sonst keine Bewegung
         const room = map.currentRoom;
-        if (room && room.layout) {
-            // Finde einen Ausgang
-            // Wir suchen einfach den ersten verfügbaren Nachbarn
-            const neighbors = room.layout.neighbors;
-            let targetDoor = null;
-            
-            // Bevorzugt unbesuchte? Wissen wir hier nicht direkt (Grid ist in Map).
-            // Einfache Logik: Zufälliger Ausgang oder Reihenfolge.
-            
+        if (room && room.layout && room.enemies.length === 0) {
+            const path = map.findPathToUnvisited(`${map.currentGridX},${map.currentGridY}`);
+            const nextDir = path.length > 0 ? path[0] : null;
+
+            const neighbors = room.layout.neighbors || {};
             const w = room.width;
             const h = room.height;
-            const doorW = 100;
             const border = 30; // Zielpunkt etwas in den Ausgang rein
-
-            if (neighbors.up) targetDoor = { x: w/2, y: border };
-            else if (neighbors.right) targetDoor = { x: w - border, y: h/2 };
-            else if (neighbors.left) targetDoor = { x: border, y: h/2 };
-            else if (neighbors.down) targetDoor = { x: w/2, y: h - border };
+            const neighborList = [];
+            const gx = map.currentGridX;
+            const gy = map.currentGridY;
             
-            if (targetDoor) {
-                this.setTarget(targetDoor.x, targetDoor.y, null);
+            if (neighbors.up) neighborList.push({ dir: 'up', x: w/2, y: border, key: `${gx},${gy+1}` });
+            if (neighbors.down) neighborList.push({ dir: 'down', x: w/2, y: h - border, key: `${gx},${gy-1}` });
+            if (neighbors.left) neighborList.push({ dir: 'left', x: border, y: h/2, key: `${gx-1},${gy}` });
+            if (neighbors.right) neighborList.push({ dir: 'right', x: w - border, y: h/2, key: `${gx+1},${gy}` });
+
+            let candidate = null;
+            if (nextDir) {
+                candidate = neighborList.find(n => n.dir === nextDir) || null;
+            }
+
+            if (!candidate) {
+                // Falls keine ungeklärte Route gefunden, versuche unbesuchte Nachbarn direkt
+                const unvisited = neighborList.filter(n => {
+                    const targetRoom = map.grid[n.key];
+                    return !targetRoom || !targetRoom.visited;
+                });
+                candidate = (unvisited.length > 0 ? unvisited : neighborList)[0] || null;
+            }
+
+            if (candidate) {
+                this.setTarget(candidate.x, candidate.y, null);
             }
         }
     }
