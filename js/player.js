@@ -100,7 +100,7 @@ export class Player {
         this.y = 0;
         
         // Bewegung
-        this.speed = 200; // Pixel pro Sekunde
+        this.speed = 140; // Pixel pro Sekunde
         this.vx = 0;
         this.vy = 0;
         
@@ -168,7 +168,7 @@ export class Player {
         
         this.hpRegen = 1 + (this.upgrades.regen * UPGRADE_CONFIG.regen.perLevel);
         
-        this.range = 60; // Default Melee
+        this.range = 35; // Default Melee (Reduced for better feel)
         this.weapon = 'fist';
         this.critMultiplier = 1.5;
         this.attackRate = this.level >= 10 ? 1.2 : 1.0;
@@ -569,15 +569,20 @@ export class Player {
             const neighbors = room.layout.neighbors || {};
             const w = room.width;
             const h = room.height;
-            const border = 30; // Zielpunkt etwas in den Ausgang rein
             const neighborList = [];
             const gx = map.currentGridX;
             const gy = map.currentGridY;
             
-            if (neighbors.up) neighborList.push({ dir: 'up', x: w/2, y: border, key: `${gx},${gy+1}` });
-            if (neighbors.down) neighborList.push({ dir: 'down', x: w/2, y: h - border, key: `${gx},${gy-1}` });
-            if (neighbors.left) neighborList.push({ dir: 'left', x: border, y: h/2, key: `${gx-1},${gy}` });
-            if (neighbors.right) neighborList.push({ dir: 'right', x: w - border, y: h/2, key: `${gx+1},${gy}` });
+            // Target points must be inside the door tile (or past it) to trigger switchRoom
+            // Door North: Row 0. Target y < 16.
+            // Door South: Row max. Target y > h - 16.
+            // Door West: Col 0. Target x < 16.
+            // Door East: Col max. Target x > w - 16.
+            
+            if (neighbors.up) neighborList.push({ dir: 'up', x: w/2, y: 0, key: `${gx},${gy+1}` });
+            if (neighbors.down) neighborList.push({ dir: 'down', x: w/2, y: h - 8, key: `${gx},${gy-1}` });
+            if (neighbors.left) neighborList.push({ dir: 'left', x: 0, y: h/2, key: `${gx-1},${gy}` });
+            if (neighbors.right) neighborList.push({ dir: 'right', x: w - 8, y: h/2, key: `${gx+1},${gy}` });
 
             let candidate = null;
             if (nextDir) {

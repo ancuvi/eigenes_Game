@@ -37,9 +37,25 @@ function spawnEnemiesInRoom(spawnPointsWorld, difficulty, stage, floor, forcedCo
     const enemies = [];
 
     shuffled.forEach((pt) => {
-        const stats = BalanceManager.getEnemyStats(stage, floor, false, pt.isBoss);
-        const enemy = new Enemy(stats, pt.x, pt.y, pt.isBoss);
-        enemy.rank = pt.isBoss ? 'boss' : 'normal';
+        // Logic: Normal rooms only have normal enemies.
+        // Boss room has Miniboss on floors 1-9, and Real Boss on floor 10.
+        let rank = 'normal';
+        let isMiniboss = false;
+        let isBoss = false;
+
+        if (pt.isBoss) {
+            if (floor === 10) {
+                rank = 'boss';
+                isBoss = true;
+            } else {
+                rank = 'miniboss';
+                isMiniboss = true;
+            }
+        }
+
+        const stats = BalanceManager.getEnemyStats(stage, floor, isMiniboss, isBoss);
+        const enemy = new Enemy(stats, pt.x, pt.y, rank);
+        enemy.rank = rank; 
         enemy.type = Math.random() < 0.3 ? 'ranged' : 'melee';
         enemies.push(enemy);
     });
@@ -93,7 +109,11 @@ export class GameMap {
         this.grid = {};
         this.dungeonLayout = {};
         
-            this.dungeonLayout['0,0'] = { type: 'start', category: 'Start', distance: 0, neighbors: {} };
+        // Dynamic Room Count based on Pool (Combat + Treasure)
+        const pool = this.roomDistributor.generateFloorRoomTypes(this.stage, this.floor);
+        this.targetRoomCount = 2 + pool.length; // Start + Boss + Pool
+
+        this.dungeonLayout['0,0'] = { type: 'start', category: 'Start', distance: 0, neighbors: {} };
         
         let queue = [{x: 0, y: 0}];
         let roomCount = 1;
@@ -264,7 +284,7 @@ export class GameMap {
 
             if (parsed.items) {
                 parsed.items.forEach(i => {
-                    const it = new Item(i.x, i.y, i.type, 20, 20); // Reduced item size
+                    const it = new Item(i.x, i.y, i.type, 16, 16); // Match TILE_SIZE
                     items.push(it);
                 });
             }
@@ -346,9 +366,10 @@ export class GameMap {
 
         if (!forceNoEnemies && pattern.potentialSpawnPoints) {
             pattern.potentialSpawnPoints.forEach((pt) => {
+                // Center 16px entity in 16px tile
                 spawnPointsWorld.push({
-                    x: pt.col * TILE_SIZE + TILE_SIZE / 2 - 10,
-                    y: pt.row * TILE_SIZE + TILE_SIZE / 2 - 10,
+                    x: pt.col * TILE_SIZE,
+                    y: pt.row * TILE_SIZE,
                     isBoss: pt.isBoss
                 });
             });

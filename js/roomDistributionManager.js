@@ -83,9 +83,9 @@ export class RoomDistributionManager {
         for (let i = 0; i < FLOOR_CONFIG.COMBAT_ROOMS_TARGET; i++) {
             pool.push({ type: 'Combat' });
         }
-        pool.push({ type: hasTreasure ? 'Treasure' : 'Event' });
-        pool.push({ type: 'Event' });
-        pool.push({ type: 'Empty' });
+        if (hasTreasure) {
+            pool.push({ type: 'Treasure' });
+        }
 
         shuffleInPlace(pool);
         return pool;

@@ -1,11 +1,18 @@
 // Enemy Klasse: Gegner mit Position und Stats
 import { randomNumber, getDistance, pushBack } from './utils.js';
 import { Projectile } from './projectile.js';
-import { ENEMY_SIZE, BOSS_SIZE } from './constants.js';
+import { ENEMY_SIZE, BOSS_SIZE, MINIBOSS_SIZE } from './constants.js';
 
 export class Enemy {
-    constructor(stats, x, y, isBoss = false) {
-        this.isBoss = isBoss;
+    constructor(stats, x, y, rank = 'normal') {
+        // Handle legacy boolean if passed (though map.js is updated)
+        if (typeof rank === 'boolean') {
+            rank = rank ? 'boss' : 'normal';
+        }
+        
+        this.rank = rank;
+        this.isBoss = (rank === 'boss');
+        this.isMiniboss = (rank === 'miniboss');
         this.type = 'melee'; // 'melee' | 'ranged'
         
         // Stats übernehmen
@@ -14,22 +21,27 @@ export class Enemy {
         this.damage = stats.damage;
         this.level = 1; // Placeholder für Name Gen
         
-        // Name & Flavor
-        if (isBoss) {
+        // Name & Flavor & Size
+        if (this.isBoss) {
             this.name = 'Eisen-Golem (Boss)';
             this.width = BOSS_SIZE;
             this.height = BOSS_SIZE;
             this.expReward = 200;
-            this.goldReward = 0; // Loot wird separat gewürfelt (RollLoot im Map)
             this.attackSpeed = 0.5;
+        } else if (this.isMiniboss) {
+            this.name = 'Elite Wächter (Mini-Boss)';
+            this.width = MINIBOSS_SIZE;
+            this.height = MINIBOSS_SIZE;
+            this.expReward = 100;
+            this.attackSpeed = 0.55;
         } else {
             this.name = this.generateName(randomNumber(1, 5));
             this.width = ENEMY_SIZE;
             this.height = ENEMY_SIZE;
             this.expReward = 10 + randomNumber(1, 10);
-            this.goldReward = 0; // Loot via Map
             this.attackSpeed = 0.6;
         }
+        this.goldReward = 0; // Loot via Map
         this.defense = 0;
 
         // Position & Größe
@@ -39,8 +51,8 @@ export class Enemy {
 
         // Kampf
         this.attackCooldown = 0;
-        this.attackRange = 60;
-        this.speed = 80;
+        this.attackRange = this.isBoss ? 45 : 35; // Dynamic Range
+        this.speed = 60;
         this.aggroRange = 200; // Bereich in dem der Gegner den Spieler bemerkt
         this.leashRange = 450; // Abbruchdistanz, falls Spieler sehr weit weg läuft
         this.isAggro = false;

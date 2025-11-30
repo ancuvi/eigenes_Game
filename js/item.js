@@ -1,7 +1,7 @@
 import { ITEM_DEFINITIONS, RARITY_LEVELS } from './items/itemData.js';
 
 export class Item {
-    constructor(x, y, type, width = 20, height = 20) {
+    constructor(x, y, type, width = 16, height = 16) {
         this.x = x;
         this.y = y;
         this.type = type; // itemId for gear, or 'potion_hp', 'next_floor'
