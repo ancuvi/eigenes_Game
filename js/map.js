@@ -260,6 +260,13 @@ export class GameMap {
                 enemies = spawnEnemiesInRoom(parsed.spawnPointsWorld, difficulty, this.stage, this.floor, forcedCountMap[difficulty]);
                 if (enemies.length > 0) UI.log(`${enemies.length} Gegner lauern hier.`);
             }
+
+            if (parsed.items) {
+                parsed.items.forEach(i => {
+                    const it = new Item(i.x, i.y, i.type, 40, 40);
+                    items.push(it);
+                });
+            }
             
             this.grid[key] = {
                 enemies: enemies,
@@ -312,6 +319,7 @@ export class GameMap {
 
         const obstacles = [];
         const spawnPointsWorld = [];
+        const items = [];
         
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
@@ -327,6 +335,12 @@ export class GameMap {
                         height: tileH,
                         type: cell === 9 ? 'void' : 'wall'
                     });
+                } else if (cell === 3) {
+                    items.push({
+                        x: x + tileW/2 - 20, // Center item
+                        y: y + tileH/2 - 20,
+                        type: 'treasure_chest'
+                    });
                 }
             }
         }
@@ -341,7 +355,7 @@ export class GameMap {
             });
         }
         
-        return { roomW, roomH, obstacles, spawnPointsWorld };
+        return { roomW, roomH, obstacles, spawnPointsWorld, items };
     }
 
     switchRoom(direction) {
@@ -404,7 +418,7 @@ export class GameMap {
      * startKey: `${gx},${gy}`
      * Rückgabe: Array von Richtungen ['up','right',...], oder [] wenn nichts offen ist.
      */
-    findPathToUnvisited(startKey) {
+    findPathToUnvisited(startKey, excludeBoss = false) {
         const visited = new Set();
         const queue = [{ key: startKey, path: [] }];
         
@@ -413,14 +427,18 @@ export class GameMap {
             if (visited.has(key)) continue;
             visited.add(key);
             
+            const layout = this.dungeonLayout[key];
+            if (!layout) continue;
+
             // Unvisited Ziel?
             const roomObj = this.grid[key];
             if (!roomObj || !roomObj.visited) {
-                if (path.length > 0) return path;
+                // Wenn excludeBoss aktiv ist, überspringen wir Boss-Räume als Ziel
+                if (!excludeBoss || layout.type !== 'boss') {
+                    if (path.length > 0) return path;
+                }
             }
             
-            const layout = this.dungeonLayout[key];
-            if (!layout) continue;
             const [gx, gy] = key.split(',').map(Number);
             const neighbors = layout.neighbors || {};
             
@@ -526,6 +544,41 @@ export class GameMap {
     }
 
     pickupItem(item) {
+        if (item.type === 'treasure_chest') {
+             // Chest Interaction
+             UI.log("Schatzkiste geöffnet!", "#ffd700");
+             
+             // Roll loot specially for Treasure
+             const drop = BalanceManager.rollLoot(this.stage, 'treasure');
+             if (drop) {
+                 if (drop.type === 'gear') {
+                    // Spawn Gear Item
+                    const keys = Object.keys(ITEM_DEFINITIONS);
+                    const randKey = keys[Math.floor(Math.random() * keys.length)];
+                    const lootItem = new Item(item.x, item.y, randKey);
+                    lootItem.rarity = drop.rarity;
+                    
+                    // Remove chest, add item
+                    // But we are in a loop in update(), so we can't easily replace current item in iteration?
+                    // actually update() filters items. If we return false (or not strictly), item is removed.
+                    // We can just push new item to list.
+                    
+                    // Better: Remove chest immediately (it happens via filter in update)
+                    // And push new item
+                    if (this.currentRoom.items) {
+                        this.currentRoom.items.push(lootItem);
+                    }
+                    
+                    const colors = {
+                        grey: '#9e9e9e', green: '#4caf50', blue: '#2196f3', 
+                        purple: '#9c27b0', gold: '#ffc107', red: '#f44336'
+                    };
+                    UI.log(`Inhalt: ${drop.rarity} Item!`, colors[drop.rarity]);
+                 }
+             }
+             return; // Chest is consumed
+        }
+
         if (ITEM_DEFINITIONS[item.type]) {
             // Add to persistent inventory & run loot
             SaveManager.addItem(item.type, item.rarity);

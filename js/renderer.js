@@ -187,7 +187,24 @@ export class Renderer {
             this.ctx.shadowBlur = 10 + Math.sin(time) * 5;
             this.ctx.shadowColor = 'white';
 
-            if (item.type === 'potion_hp') {
+            if (item.type === 'treasure_chest') {
+                // Goldene Kiste
+                this.ctx.fillStyle = '#DAA520'; 
+                this.ctx.fillRect(x, y + 10, w, h - 10); // Body
+                
+                this.ctx.fillStyle = '#FFD700'; 
+                this.ctx.fillRect(x, y, w, 10); // Deckel
+                
+                this.ctx.strokeStyle = '#8B4513';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(x, y + 10, w, h - 10);
+                this.ctx.strokeRect(x, y, w, 10);
+                
+                // Schloss
+                this.ctx.fillStyle = '#C0C0C0';
+                this.ctx.fillRect(x + w/2 - 4, y + 8, 8, 8);
+                
+            } else if (item.type === 'potion_hp') {
                 this.ctx.fillStyle = '#f00';
                 this.ctx.beginPath();
                 this.ctx.arc(x + w/2, y + h/2 + 2, 8, 0, Math.PI * 2); // Flasche

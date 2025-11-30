@@ -536,7 +536,14 @@ export class Player {
         // 3. Raumwechsel (Wenn leer) – nur zu unbekannten Räumen, sonst keine Bewegung
         const room = map.currentRoom;
         if (room && room.layout && room.enemies.length === 0) {
-            const path = map.findPathToUnvisited(`${map.currentGridX},${map.currentGridY}`);
+            // Erst normale Räume suchen (ohne Boss)
+            let path = map.findPathToUnvisited(`${map.currentGridX},${map.currentGridY}`, true);
+            
+            // Wenn keine normalen mehr da sind, dann zum Boss
+            if (path.length === 0) {
+                path = map.findPathToUnvisited(`${map.currentGridX},${map.currentGridY}`, false);
+            }
+            
             const nextDir = path.length > 0 ? path[0] : null;
 
             const neighbors = room.layout.neighbors || {};

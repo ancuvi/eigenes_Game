@@ -108,16 +108,20 @@ export class MapOverlay {
                 this.ctx.fillRect(sx + 6, sy + 6, cellSize - 12, cellSize - 12);
             }
             
-            // Boss Icon (falls besucht oder seen) - Optional
-            // Dazu müssten wir wissen ob es Boss ist. In `map.js` loadRoom setzen wir `layout` in grid.
-            // Aber für 'seen' rooms haben wir nur Koordinaten.
-            // Wir könnten map.dungeonLayout abfragen.
+            // Boss Icon / Treasure Icon
             const layout = this.map.dungeonLayout[`${room.x},${room.y}`];
-            if (layout && layout.type === 'boss') {
-                this.ctx.fillStyle = '#e53935';
-                this.ctx.beginPath();
-                this.ctx.arc(sx + cellSize/2, sy + cellSize/2, 4, 0, Math.PI*2);
-                this.ctx.fill();
+            if (layout) {
+                if (layout.type === 'boss') {
+                    this.ctx.fillStyle = '#e53935'; // Red for Boss
+                    this.ctx.beginPath();
+                    this.ctx.arc(sx + cellSize/2, sy + cellSize/2, 4, 0, Math.PI*2);
+                    this.ctx.fill();
+                } else if (layout.type === 'treasure') {
+                    this.ctx.fillStyle = '#ffd700'; // Yellow/Gold for Treasure
+                    this.ctx.beginPath();
+                    this.ctx.arc(sx + cellSize/2, sy + cellSize/2, 4, 0, Math.PI*2);
+                    this.ctx.fill();
+                }
             }
         });
 

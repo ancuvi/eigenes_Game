@@ -130,6 +130,12 @@ export class BalanceManager {
             return null;
         }
 
+        // Special Case: Treasure Chest -> Always Gear
+        if (enemyRank === 'treasure') {
+            const rarity = this.rollRarity(stage, enemyRank);
+            return { type: 'gear', rarity: rarity };
+        }
+
         // 2. Loot Typ bestimmen
         const randType = Math.random();
         
