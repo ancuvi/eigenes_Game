@@ -4,7 +4,10 @@ import { Projectile } from './projectile.js';
 import * as UI from './ui.js';
 import { ITEM_DEFINITIONS, ITEM_SETS } from './items/itemData.js';
 import { SaveManager } from './saveManager.js';
-import { PLAYER_SIZE } from './constants.js';
+import { 
+    PLAYER_SIZE, PLAYER_HITBOX_SIZE, PLAYER_HITBOX_OFFSET,
+    PLAYER_MAX_SPEED, PLAYER_ACCEL, PLAYER_FRICTION, PLAYER_STOP_EPS 
+} from './constants.js';
 
 export const UPGRADE_CONFIG = {
     attack: { baseCost: 50, costMult: 1.5, perLevel: 1, name: "Attack Damage" },
@@ -100,9 +103,11 @@ export class Player {
         this.y = 0;
         
         // Bewegung
-        this.speed = 140; // Pixel pro Sekunde
-        this.vx = 0;
-        this.vy = 0;
+        this.speed = PLAYER_MAX_SPEED; // Base Max Speed
+        this.vx = 0; // Actual Velocity X
+        this.vy = 0; // Actual Velocity Y
+        this.inputX = 0; // Input Direction X
+        this.inputY = 0; // Input Direction Y
         
         this.targetX = this.x;
         this.targetY = this.y;
@@ -334,11 +339,20 @@ export class Player {
         this.attackCooldownMs = baseMs;
     }
     
-    setMovement(vx, vy) {
-        this.vx = vx;
-        this.vy = vy;
-        this.isMoving = (vx !== 0 || vy !== 0);
+    setMovement(ix, iy) {
+        this.inputX = ix;
+        this.inputY = iy;
+        // isMoving determines if we are logically moving (e.g. for animations)
+        // But for physics, we use velocity magnitude check
+        this.isMoving = (ix !== 0 || iy !== 0); 
         this.moveMode = 'manual';
+    }
+    
+    moveTowards(current, target, maxDelta) {
+        if (Math.abs(target - current) <= maxDelta) {
+            return target;
+        }
+        return current + Math.sign(target - current) * maxDelta;
     }
 
     setTarget(x, y, targetEntity = null) {
@@ -349,7 +363,30 @@ export class Player {
         this.moveMode = 'auto';
     }
 
-    update(dt) {
+    getHitbox() {
+        return {
+            x: this.x + PLAYER_HITBOX_OFFSET,
+            y: this.y + PLAYER_HITBOX_OFFSET,
+            width: PLAYER_HITBOX_SIZE,
+            height: PLAYER_HITBOX_SIZE
+        };
+    }
+
+    getHitboxCenter() {
+        return {
+            x: this.x + PLAYER_HITBOX_OFFSET + PLAYER_HITBOX_SIZE / 2,
+            y: this.y + PLAYER_HITBOX_OFFSET + PLAYER_HITBOX_SIZE / 2
+        };
+    }
+
+    getShadowAnchor() {
+        return {
+            x: this.x + PLAYER_HITBOX_OFFSET + PLAYER_HITBOX_SIZE / 2,
+            y: this.y + PLAYER_HITBOX_OFFSET + PLAYER_HITBOX_SIZE 
+        };
+    }
+
+    update(dt, map) {
         // Cooldown reduzieren
         if (this.attackCooldownTimer > 0) {
             this.attackCooldownTimer -= dt;
@@ -377,14 +414,56 @@ export class Player {
         }
 
         // Bewegung
-        if (this.isMoving) {
-            const currentSpeed = this.isDashing ? this.dashSpeed : this.speed;
+        const maxSpeed = this.isDashing ? this.dashSpeed : this.speed;
+
+        if (this.moveMode === 'manual') {
+            // Physics Update with Accel/Friction
+            let targetVx = this.inputX * maxSpeed;
+            let targetVy = this.inputY * maxSpeed;
             
-            if (this.moveMode === 'manual') {
-                this.x += this.vx * currentSpeed * dt;
-                this.y += this.vy * currentSpeed * dt;
-            } else {
-                // Auto Mode (Click to Move)
+            // Apply Acceleration or Friction
+            // If input is zero, we approach 0 with FRICTION
+            // If input is non-zero, we approach target with ACCEL
+            const accel = (this.inputX === 0 && this.inputY === 0) ? PLAYER_FRICTION : PLAYER_ACCEL;
+            
+            this.vx = this.moveTowards(this.vx, targetVx, accel * dt);
+            this.vy = this.moveTowards(this.vy, targetVy, accel * dt);
+            
+            // Snap to 0 if very slow
+            if (Math.abs(this.vx) < PLAYER_STOP_EPS) this.vx = 0;
+            if (Math.abs(this.vy) < PLAYER_STOP_EPS) this.vy = 0;
+
+            // Axis-Separated Movement & Collision
+            // X Axis
+            if (this.vx !== 0) {
+                const nextX = this.x + this.vx * dt;
+                this.x = nextX;
+                if (map) {
+                    const hb = this.getHitbox();
+                    if (map.rectCollidesWithSolids(hb)) {
+                        map.checkEntityCollision(this); // Pushes back
+                        this.vx = 0; // Stop on wall collision
+                    }
+                }
+            }
+            
+            // Y Axis
+            if (this.vy !== 0) {
+                const nextY = this.y + this.vy * dt;
+                this.y = nextY;
+                if (map) {
+                    const hb = this.getHitbox();
+                    if (map.rectCollidesWithSolids(hb)) {
+                        map.checkEntityCollision(this); // Pushes back
+                        this.vy = 0; // Stop on wall collision
+                    }
+                }
+            }
+            
+            // Update isMoving flag based on actual velocity for animations
+            this.isMoving = (this.vx !== 0 || this.vy !== 0);
+
+        } else if (this.isMoving) { // Auto Mode Logic (Legacy/Click)
                 const dist = getDistance(this.x, this.y, this.targetX, this.targetY);
                 let stopDistance = 2;
                 
@@ -412,13 +491,12 @@ export class Player {
                     if (dist <= stopDistance) {
                         this.isMoving = false;
                     } else {
-                        const moveDist = currentSpeed * dt;
+                        const moveDist = maxSpeed * dt;
                         const ratio = moveDist / dist;
                         this.x += (this.targetX - this.x) * ratio;
                         this.y += (this.targetY - this.y) * ratio;
                     }
                 }
-            }
         } else if (this.interactionTarget && !this.interactionTarget.isDead() && this.moveMode === 'auto') {
              // Re-Engage logic in auto mode (wenn Ziel wegläuft)
              const tx = this.interactionTarget.x + this.interactionTarget.width/2;

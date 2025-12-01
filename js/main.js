@@ -619,7 +619,7 @@ class Game {
             this.autopilot.update(dt);
         }
 
-        this.player.update(dt);
+        this.player.update(dt, this.map);
         
         if (this.map.currentRoom) {
             this.camera.update(this.player, this.map.currentRoom.width, this.map.currentRoom.height);

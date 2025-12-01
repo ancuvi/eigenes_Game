@@ -12,9 +12,22 @@ export function setActualScale(s) { ACTUAL_SCALE = s; }
 
 // Entity Sizes (in World Pixels)
 export const PLAYER_SIZE = 16;
+export const PLAYER_SPRITE_SIZE = 16;
+export const PLAYER_HITBOX_SIZE = 12;
+export const PLAYER_HITBOX_OFFSET = (PLAYER_SPRITE_SIZE - PLAYER_HITBOX_SIZE) / 2;
+
 export const ENEMY_SIZE = 16;
 export const MINIBOSS_SIZE = 24;
 export const BOSS_SIZE = 40;
+
+export const DEBUG_HITBOX = false;
+
+// Movement Physics
+export const PLAYER_MAX_SPEED = 100;     // Wie schnell der Charakter maximal läuft
+export const PLAYER_ACCEL = 400;       // Wie schnell er auf Höchstgeschwindigkeit kommt (Beschleunigung)
+export const PLAYER_FRICTION = 400;    // Wie schnell er bremst, wenn man loslässt (Reibung)
+export const PLAYER_INPUT_DEADZONE = 0.15; // Ignoriert leichte Stick-Bewegungen (Deadzone)
+export const PLAYER_STOP_EPS = 2;       // Ab welcher Geschwindigkeit er sofort stoppt (verhindert Rutschen)
 
 // Tile-IDs (Autotile/Isaac Setup)
 // Basis

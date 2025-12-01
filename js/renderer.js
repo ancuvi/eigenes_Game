@@ -1,5 +1,5 @@
 // Renderer: Zeichnet alles auf das Canvas
-import { TILE, TILE_SIZE, RENDER_SCALE, WALL_LIKE_TILES, VIRTUAL_WIDTH, VIRTUAL_HEIGHT } from './constants.js';
+import { TILE, TILE_SIZE, RENDER_SCALE, WALL_LIKE_TILES, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, DEBUG_HITBOX } from './constants.js';
 import { getWallNeighborMask } from './utils.js';
 
 export class Renderer {
@@ -399,6 +399,23 @@ export class Renderer {
         const sw = entity.width * RENDER_SCALE;
         const sh = entity.height * RENDER_SCALE;
         
+        // Shadow
+        let shadowX, shadowY;
+        if (entity.getShadowAnchor) {
+            const anchor = entity.getShadowAnchor();
+            shadowX = (anchor.x - camX) * RENDER_SCALE;
+            shadowY = (anchor.y - camY) * RENDER_SCALE;
+        } else {
+            shadowX = (entity.x + entity.width/2 - camX) * RENDER_SCALE;
+            shadowY = (entity.y + entity.height - camY) * RENDER_SCALE;
+        }
+        
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.beginPath();
+        ctx.ellipse(shadowX, shadowY, sw * 0.3, sh * 0.15, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Sprite Body
         ctx.fillStyle = color;
         ctx.fillRect(sx, sy, sw, sh);
         
@@ -412,6 +429,18 @@ export class Renderer {
         const eyeY = sy + sh * 0.3;
         ctx.fillRect(sx + sw * 0.25, eyeY, eyeSize, eyeSize); 
         ctx.fillRect(sx + sw * 0.75 - eyeSize, eyeY, eyeSize, eyeSize); 
+        
+        // Debug Hitbox
+        if (DEBUG_HITBOX) {
+             const hb = entity.getHitbox ? entity.getHitbox() : {x:entity.x, y:entity.y, width:entity.width, height:entity.height};
+             const hx = (hb.x - camX) * RENDER_SCALE;
+             const hy = (hb.y - camY) * RENDER_SCALE;
+             const hw = hb.width * RENDER_SCALE;
+             const hh = hb.height * RENDER_SCALE;
+             ctx.strokeStyle = '#00ff00';
+             ctx.lineWidth = 1;
+             ctx.strokeRect(hx, hy, hw, hh);
+        }
     }
 
     drawHealthBar(entity, camX, camY) {

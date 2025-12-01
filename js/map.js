@@ -482,7 +482,7 @@ export class GameMap {
     update(dt) {
         if (!this.currentRoom) return;
         
-        // Player Collision
+        // Player Doors Check (Wall collision is in Player.update)
         this.checkPlayerCollisions();
 
         // Projectiles Update
@@ -672,16 +672,49 @@ export class GameMap {
         }
     }
 
+    // Check if a rect collides with solid tiles
+    rectCollidesWithSolids(rect) {
+        if (!this.currentRoom || !this.currentRoom.tiles) return false;
+        
+        const tiles = this.currentRoom.tiles;
+        const rows = tiles.length;
+        const cols = tiles[0].length;
+        const isClear = this.currentRoom.enemies.length === 0;
+
+        const minC = Math.floor(rect.x / TILE_SIZE);
+        const minR = Math.floor(rect.y / TILE_SIZE);
+        const maxC = Math.floor((rect.x + rect.width - 0.01) / TILE_SIZE);
+        const maxR = Math.floor((rect.y + rect.height - 0.01) / TILE_SIZE);
+
+        for (let r = minR; r <= maxR; r++) {
+            for (let c = minC; c <= maxC; c++) {
+                if (r < 0 || r >= rows || c < 0 || c >= cols) continue;
+                
+                const tile = tiles[r][c];
+                if (SOLID_TILES.has(tile)) return true;
+                
+                // Doors are solid if not clear
+                if (!isClear && (tile === TILE.DOOR_NORTH || tile === TILE.DOOR_SOUTH || 
+                                 tile === TILE.DOOR_EAST || tile === TILE.DOOR_WEST)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     // Allgemeine Kollision für alle Entities (Player & Enemies)
     checkEntityCollision(ent) {
         const tiles = this.currentRoom.tiles;
         if (!tiles) return;
 
-        // Bounding box of entity
-        const minC = Math.floor(ent.x / TILE_SIZE);
-        const minR = Math.floor(ent.y / TILE_SIZE);
-        const maxC = Math.floor((ent.x + ent.width) / TILE_SIZE);
-        const maxR = Math.floor((ent.y + ent.height) / TILE_SIZE);
+        // Use hitbox if available, else standard rect
+        const bounds = ent.getHitbox ? ent.getHitbox() : { x: ent.x, y: ent.y, width: ent.width, height: ent.height };
+
+        const minC = Math.floor(bounds.x / TILE_SIZE);
+        const minR = Math.floor(bounds.y / TILE_SIZE);
+        const maxC = Math.floor((bounds.x + bounds.width) / TILE_SIZE);
+        const maxR = Math.floor((bounds.y + bounds.height) / TILE_SIZE);
 
         const rows = tiles.length;
         const cols = tiles[0].length;
@@ -709,8 +742,14 @@ export class GameMap {
                         width: TILE_SIZE,
                         height: TILE_SIZE
                     };
-                    if (checkCollision(ent, rect)) {
+                    // Simple AABB check against bounds
+                    if (bounds.x < rect.x + rect.width &&
+                        bounds.x + bounds.width > rect.x &&
+                        bounds.y < rect.y + rect.height &&
+                        bounds.y + bounds.height > rect.y) {
+                        
                         this.resolveAABB(ent, rect);
+                        // Re-fetch bounds after resolution? simpler to just resolve once per tile interaction
                     }
                 }
             }
@@ -719,13 +758,8 @@ export class GameMap {
 
     // Spezielle Logik für Player (Türen)
     checkPlayerCollisions() {
-        const p = this.player;
-        
-        // Zuerst Doors checken
-        if (this.checkDoors(p)) return;
-        
-        // Dann normale Kollision (Wände/Steine)
-        this.checkEntityCollision(p);
+        // Only check doors here, wall collision is now handled in player movement
+        this.checkDoors(this.player);
     }
     
     checkDoors(p) {
@@ -735,12 +769,11 @@ export class GameMap {
         const isClear = this.currentRoom.enemies.length === 0;
         if (!isClear) return false;
 
-        // Check center of player
-        const cx = p.x + p.width / 2;
-        const cy = p.y + p.height / 2;
+        // Check center of player (Hitbox Center preferably)
+        const center = p.getHitboxCenter ? p.getHitboxCenter() : { x: p.x + p.width / 2, y: p.y + p.height / 2 };
         
-        const c = Math.floor(cx / TILE_SIZE);
-        const r = Math.floor(cy / TILE_SIZE);
+        const c = Math.floor(center.x / TILE_SIZE);
+        const r = Math.floor(center.y / TILE_SIZE);
         
         if (r >= 0 && r < tiles.length && c >= 0 && c < tiles[0].length) {
             const tile = tiles[r][c];
@@ -766,21 +799,23 @@ export class GameMap {
         return false;
     }
     
-    resolveAABB(p, rect) {
-        const overlapX = (p.width + rect.width) / 2 - Math.abs((p.x + p.width/2) - (rect.x + rect.width/2));
-        const overlapY = (p.height + rect.height) / 2 - Math.abs((p.y + p.height/2) - (rect.y + rect.height/2));
+    resolveAABB(ent, rect) {
+        const bounds = ent.getHitbox ? ent.getHitbox() : { x: ent.x, y: ent.y, width: ent.width, height: ent.height };
+        
+        const overlapX = (bounds.width + rect.width) / 2 - Math.abs((bounds.x + bounds.width/2) - (rect.x + rect.width/2));
+        const overlapY = (bounds.height + rect.height) / 2 - Math.abs((bounds.y + bounds.height/2) - (rect.y + rect.height/2));
         
         if (overlapX < overlapY) {
-            if (p.x < rect.x) {
-                p.x -= overlapX;
+            if (bounds.x < rect.x) {
+                ent.x -= overlapX;
             } else {
-                p.x += overlapX;
+                ent.x += overlapX;
             }
         } else {
-            if (p.y < rect.y) {
-                p.y -= overlapY;
+            if (bounds.y < rect.y) {
+                ent.y -= overlapY;
             } else {
-                p.y += overlapY;
+                ent.y += overlapY;
             }
         }
     }
