@@ -12,6 +12,7 @@ import { SaveManager } from './saveManager.js';
 import { ITEM_DEFINITIONS, RARITY_LEVELS } from './items/itemData.js';
 import { Item } from './item.js';
 import { RENDER_SCALE, TILE_SIZE } from './constants.js';
+import { AutoPilot } from './autopilot.js';
 
 class Game {
     constructor() {
@@ -21,6 +22,7 @@ class Game {
         this.player = new Player();
         this.map = new GameMap(this.player, this.canvas); 
         this.map.onStageComplete = (stage) => this.handleStageComplete(stage);
+        this.autopilot = new AutoPilot(this.player, this.map);
         
         this.inputHandler = new InputHandler(this.canvas, this.player, this.map);
         this.camera = null;
@@ -599,7 +601,7 @@ class Game {
         }
 
         if (this.isAutoMode) {
-            this.player.updateAutoPilot(this.map, dt);
+            this.autopilot.update(dt);
         }
 
         this.player.update(dt);

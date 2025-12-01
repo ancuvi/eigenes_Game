@@ -1,5 +1,5 @@
 // Enemy Klasse: Gegner mit Position und Stats
-import { randomNumber, getDistance, pushBack } from './utils.js';
+import { randomNumber, getDistance, pushBack, checkCollision } from './utils.js';
 import { Projectile } from './projectile.js';
 import { ENEMY_SIZE, BOSS_SIZE, MINIBOSS_SIZE } from './constants.js';
 
@@ -107,12 +107,13 @@ export class Enemy {
     }
 
     updateMelee(dt, player, dist, map) {
-        if (dist <= this.attackRange) {
+        const inContact = checkCollision(this, player);
+
+        if (inContact) {
             if (this.attackCooldown <= 0) {
                 this.performMeleeAttack(player, map);
             }
         } else {
-            // Chase
             this.moveTowards(player.x, player.y, dt);
         }
     }
@@ -163,9 +164,11 @@ export class Enemy {
     }
 
     performMeleeAttack(player, map) {
-        player.takeDamage(this.damage, this);
-        pushBack(player, this, 20, map ? map.currentRoom : null);
-        this.attackCooldown = 1.0 / this.attackSpeed;
+        if (checkCollision(this, player)) {
+            player.takeDamage(this.damage, this);
+            pushBack(player, this, 20, map ? map.currentRoom : null);
+            this.attackCooldown = 1.0 / this.attackSpeed;
+        }
     }
 
     performRangedAttack(player, map) {

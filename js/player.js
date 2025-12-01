@@ -1,5 +1,5 @@
 // Player Klasse: Verwaltet Stats, Position und Bewegung
-import { getDistance, pushBack } from './utils.js';
+import { getDistance, pushBack, checkCollision } from './utils.js';
 import { Projectile } from './projectile.js';
 import * as UI from './ui.js';
 import { ITEM_DEFINITIONS, ITEM_SETS } from './items/itemData.js';
@@ -113,12 +113,6 @@ export class Player {
         this.dashRange = 100;
         this.dashSpeed = 480;
         this.dashBonusReady = false;
-
-        // Autopilot Stuck Detection
-        this._lastAutoCheck = { x: this.x, y: this.y };
-        this._stuckTimer = 0;
-        this._stuckSide = 1;
-        this.avoidanceTimer = 0; // Wie lange wir das Hindernis umgehen, bevor wir das Ziel neu setzen
 
         // Interaktion
         this.interactionTarget = null; // Enemy oder Resource
@@ -356,11 +350,6 @@ export class Player {
     }
 
     update(dt) {
-        // Avoidance Timer reduzieren
-        if (this.avoidanceTimer > 0) {
-            this.avoidanceTimer -= dt;
-        }
-
         // Cooldown reduzieren
         if (this.attackCooldownTimer > 0) {
             this.attackCooldownTimer -= dt;
@@ -401,16 +390,21 @@ export class Player {
                 
                 // Wenn wir ein Interaktionsziel haben, stoppen wir in Range
                 if (this.interactionTarget && !this.interactionTarget.isDead()) {
-                    // Checke Distanz zum Ziel (Mitte)
                     const tx = this.interactionTarget.x + this.interactionTarget.width/2;
                     const ty = this.interactionTarget.y + this.interactionTarget.height/2;
                     const d = getDistance(this.x + this.width/2, this.y + this.height/2, tx, ty);
-                    
-                    if (d <= this.interactionRange) {
-                        this.isMoving = false;
-                        // Angreifen passiert in autoAttack
+                    const meleeWeapons = ['sword', 'dagger', 'fist'];
+                    const useMelee = meleeWeapons.includes(this.weapon);
+
+                    if (useMelee) {
+                        // Für Nahkampf nur stoppen, wenn wir den Gegner wirklich berühren
+                        if (checkCollision(this, this.interactionTarget)) {
+                            this.isMoving = false;
+                        }
                     } else {
-                        // Weiterlaufen
+                        if (d <= this.interactionRange) {
+                            this.isMoving = false;
+                        }
                     }
                 }
 
@@ -437,171 +431,6 @@ export class Player {
              }
         }
 
-        // Stuck-Detection für Autopilot: wenn wir im Auto-Mode kaum vorankommen, einen kleinen Sidestep machen
-        this.handleAutoStuck(dt);
-    }
-
-    handleAutoStuck(dt) {
-        if (this.moveMode !== 'auto' || !this.isMoving) {
-            this._stuckTimer = 0;
-            this._lastAutoCheck.x = this.x;
-            this._lastAutoCheck.y = this.y;
-            return;
-        }
-
-        const moved = getDistance(this.x, this.y, this._lastAutoCheck.x, this._lastAutoCheck.y);
-        // Schwellenwert etwas anpassen, da bei sehr hohen FPS 1px vllt unterschritten wird? 
-        // Nein, bei dt Summe sollte es passen. Aber machen wir es etwas toleranter.
-        if (moved < 2) {
-            this._stuckTimer += dt;
-            if (this._stuckTimer > 0.6) {
-                // Wenn wir ein Ziel haben, versuche seitlich am Hindernis vorbei zu laufen
-                if (this.interactionTarget && !this.interactionTarget.isDead()) {
-                    const tx = this.interactionTarget.x + this.interactionTarget.width/2;
-                    const ty = this.interactionTarget.y + this.interactionTarget.height/2;
-                    const dx = tx - (this.x + this.width/2);
-                    const dy = ty - (this.y + this.height/2);
-                    const len = Math.max(1e-3, Math.sqrt(dx*dx + dy*dy));
-                    // Perpendicular Offset (links/rechts abwechseln)
-                    const offX = (dy / len) * 140 * this._stuckSide;
-                    const offY = (-dx / len) * 140 * this._stuckSide;
-                    this._stuckSide *= -1;
-                    this.setTarget(tx + offX, ty + offY, this.interactionTarget);
-                    // Wir geben dem Spieler Zeit, diesen Ausweichpfad zu laufen
-                    this.avoidanceTimer = 1.5; 
-                } else {
-                    // kleiner Jitter
-                    const jitter = 120;
-                    const nx = this.x + (Math.random() - 0.5) * jitter;
-                    const ny = this.y + (Math.random() - 0.5) * jitter;
-                    this.setTarget(nx, ny, null);
-                    this.avoidanceTimer = 0.5;
-                }
-                this._stuckTimer = 0;
-            }
-        } else {
-            this._stuckTimer = 0;
-        }
-
-        this._lastAutoCheck.x = this.x;
-        this._lastAutoCheck.y = this.y;
-    }
-    
-    updateAutoPilot(map, dt) {
-        // Wenn wir gerade einem Hindernis ausweichen, nicht das Ziel überschreiben!
-        if (this.avoidanceTimer > 0) return;
-
-        const cx = this.x + this.width/2;
-        const cy = this.y + this.height/2;
-
-        // 1. Items sammeln (Höchste Prio) – Loch (next_floor) bevorzugen
-        const items = map.getItems();
-        if (items.length > 0) {
-            let nearestItem = null;
-            let minDist = Infinity;
-            // Next floor hat Vorrang
-            const holes = items.filter(i => i.type === 'next_floor');
-            const searchList = holes.length > 0 ? holes : items;
-            searchList.forEach(item => {
-                const d = getDistance(cx, cy, item.x + item.width/2, item.y + item.height/2);
-                if (d < minDist) {
-                    minDist = d;
-                    nearestItem = item;
-                }
-            });
-            
-            if (nearestItem) {
-                this.setTarget(nearestItem.x + nearestItem.width/2, nearestItem.y + nearestItem.height/2, null);
-                return;
-            }
-        }
-
-        // 2. Kampf
-        const enemies = map.getEnemies();
-        if (enemies.length > 0) {
-            let nearestEnemy = null;
-            let minDist = Infinity;
-            enemies.forEach(e => {
-                const d = getDistance(cx, cy, e.x + e.width/2, e.y + e.height/2);
-                if (d < minDist) {
-                    minDist = d;
-                    nearestEnemy = e;
-                }
-            });
-
-            if (nearestEnemy) {
-                if (this.weapon === 'sword') {
-                    // Schwert: Drauf laufen
-                    this.setTarget(nearestEnemy.x + nearestEnemy.width/2, nearestEnemy.y + nearestEnemy.height/2, nearestEnemy);
-                } else {
-                    // Zauberstab: Kiting / Positioning
-                    if (minDist > 300) {
-                        // Annähern
-                        this.setTarget(nearestEnemy.x + nearestEnemy.width/2, nearestEnemy.y + nearestEnemy.height/2, nearestEnemy);
-                    } else if (minDist < 150) {
-                        // Weglaufen
-                        const dx = this.x - nearestEnemy.x;
-                        const dy = this.y - nearestEnemy.y;
-                        this.setTarget(this.x + dx, this.y + dy, null);
-                    } else {
-                        // Stehen bleiben und feuern
-                        this.isMoving = false;
-                        this.setTarget(this.x, this.y, nearestEnemy); // Target für AutoAttack setzen
-                    }
-                }
-            }
-            return;
-        }
-
-        // 3. Raumwechsel (Wenn leer) – nur zu unbekannten Räumen, sonst keine Bewegung
-        const room = map.currentRoom;
-        if (room && room.layout && room.enemies.length === 0) {
-            // Erst normale Räume suchen (ohne Boss)
-            let path = map.findPathToUnvisited(`${map.currentGridX},${map.currentGridY}`, true);
-            
-            // Wenn keine normalen mehr da sind, dann zum Boss
-            if (path.length === 0) {
-                path = map.findPathToUnvisited(`${map.currentGridX},${map.currentGridY}`, false);
-            }
-            
-            const nextDir = path.length > 0 ? path[0] : null;
-
-            const neighbors = room.layout.neighbors || {};
-            const w = room.width;
-            const h = room.height;
-            const neighborList = [];
-            const gx = map.currentGridX;
-            const gy = map.currentGridY;
-            
-            // Target points must be inside the door tile (or past it) to trigger switchRoom
-            // Door North: Row 0. Target y < 16.
-            // Door South: Row max. Target y > h - 16.
-            // Door West: Col 0. Target x < 16.
-            // Door East: Col max. Target x > w - 16.
-            
-            if (neighbors.up) neighborList.push({ dir: 'up', x: w/2, y: 0, key: `${gx},${gy+1}` });
-            if (neighbors.down) neighborList.push({ dir: 'down', x: w/2, y: h - 8, key: `${gx},${gy-1}` });
-            if (neighbors.left) neighborList.push({ dir: 'left', x: 0, y: h/2, key: `${gx-1},${gy}` });
-            if (neighbors.right) neighborList.push({ dir: 'right', x: w - 8, y: h/2, key: `${gx+1},${gy}` });
-
-            let candidate = null;
-            if (nextDir) {
-                candidate = neighborList.find(n => n.dir === nextDir) || null;
-            }
-
-            if (!candidate) {
-                // Falls keine ungeklärte Route gefunden, versuche unbesuchte Nachbarn direkt
-                const unvisited = neighborList.filter(n => {
-                    const targetRoom = map.grid[n.key];
-                    return !targetRoom || !targetRoom.visited;
-                });
-                candidate = (unvisited.length > 0 ? unvisited : neighborList)[0] || null;
-            }
-
-            if (candidate) {
-                this.setTarget(candidate.x, candidate.y, null);
-            }
-        }
     }
     
     autoAttack(dt, enemies, map) {
@@ -635,8 +464,13 @@ export class Player {
             });
         }
         
-        if (nearest && minDist <= this.interactionRange) {
-             if (this.attackCooldownTimer <= 0) {
+        const meleeWeapons = ['sword', 'dagger', 'fist'];
+        const useMelee = meleeWeapons.includes(this.weapon);
+        const overlap = nearest ? checkCollision(this, nearest) : false;
+        const allowedRange = useMelee ? 0 : 160; // ranged window halbiert
+
+        if (nearest && (overlap || (!useMelee && minDist <= allowedRange))) {
+            if (this.attackCooldownTimer <= 0) {
                 this.attack(nearest, map);
                 this.attackCooldownTimer = this.attackCooldownMs / 1000;
             }
@@ -644,8 +478,6 @@ export class Player {
     }
 
     interact(target, map) {
-        // Nicht mehr genutzt durch updateAutoPilot Logic?
-        // Doch, wenn isMoving false wird und target gesetzt ist.
     }
 
     attack(enemy, map) {
