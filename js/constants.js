@@ -15,6 +15,7 @@ export const PLAYER_SIZE = 16;
 export const PLAYER_SPRITE_SIZE = 16;
 export const PLAYER_HITBOX_SIZE = 12;
 export const PLAYER_HITBOX_OFFSET = (PLAYER_SPRITE_SIZE - PLAYER_HITBOX_SIZE) / 2;
+export const PLAYER_HEAD_OFFSET = -14; // Verschiebung des Kopfes nach oben (negativ) oder unten (positiv)
 
 export const ENEMY_SIZE = 16;
 export const MINIBOSS_SIZE = 24;

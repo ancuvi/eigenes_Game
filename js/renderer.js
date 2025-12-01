@@ -1,5 +1,5 @@
 // Renderer: Zeichnet alles auf das Canvas
-import { TILE, TILE_SIZE, RENDER_SCALE, WALL_LIKE_TILES, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, DEBUG_HITBOX } from './constants.js';
+import { TILE, TILE_SIZE, RENDER_SCALE, WALL_LIKE_TILES, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, DEBUG_HITBOX, PLAYER_HEAD_OFFSET } from './constants.js';
 import { getWallNeighborMask } from './utils.js';
 
 export class Renderer {
@@ -78,7 +78,7 @@ export class Renderer {
 
         // 4. Player
         this.drawEntity(this.player, '#43a047', camX, camY); // Kräftiges Grün
-        this.drawBars(this.player, true, camX, camY); // HP + EXP
+        // this.drawBars(this.player, true, camX, camY); // HP + EXP (Deaktiviert auf Wunsch)
         
         // 5. Joystick (Visual Feedback)
         // Note: Joystick coords from Input are now scaled to Virtual space in updateDrag?
@@ -432,8 +432,8 @@ export class Renderer {
 
             // Draw Head
             if (headImg && headImg.complete) {
-                // Head sits slightly higher (-4px) + Bobbing (+offset)
-                const headOffset = (-4 + entity.bobbingOffset) * RENDER_SCALE;
+                // Head sits slightly higher (PLAYER_HEAD_OFFSET) + Bobbing (+offset)
+                const headOffset = (PLAYER_HEAD_OFFSET + entity.bobbingOffset) * RENDER_SCALE;
                 ctx.drawImage(headImg, sx, sy + headOffset, sw, sh);
             }
         } else {
