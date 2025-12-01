@@ -1,5 +1,6 @@
 // Renderer: Zeichnet alles auf das Canvas
-import { TILE, TILE_SIZE, RENDER_SCALE } from './constants.js';
+import { TILE, TILE_SIZE, RENDER_SCALE, WALL_LIKE_TILES } from './constants.js';
+import { getWallNeighborMask } from './utils.js';
 
 export class Renderer {
     constructor(canvas, player, map, inputHandler, camera) {
@@ -290,12 +291,46 @@ export class Renderer {
                 // Maybe optimize later, but for now draw floor then object on top if needed
                 // Or just background is enough (already drawn in draw())
                 
-                if (tile === TILE.WALL) {
-                    this.ctx.fillStyle = '#2e7d32'; // Wall Green
+                if (tile === TILE.WALL || tile === TILE.VOID) {
+                    // Autotile: einfache Kanten-Hervorhebung basierend auf Nachbarn
+                    const mask = getWallNeighborMask(tiles, r, c, WALL_LIKE_TILES);
+                    const isVoid = tile === TILE.VOID;
+                    this.ctx.fillStyle = isVoid ? '#050505' : '#2e7d32';
                     this.ctx.fillRect(sx, sy, sTile, sTile);
-                    this.ctx.strokeStyle = '#1b5e20';
+
+                    // Außenkanten hervorheben, wenn kein Nachbar anliegt
                     this.ctx.lineWidth = 1 * RENDER_SCALE;
-                    this.ctx.strokeRect(sx, sy, sTile, sTile);
+                    this.ctx.strokeStyle = isVoid ? '#0a0a0a' : '#1b5e20';
+                    if (!mask.up) {
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(sx, sy);
+                        this.ctx.lineTo(sx + sTile, sy);
+                        this.ctx.stroke();
+                    }
+                    if (!mask.down) {
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(sx, sy + sTile);
+                        this.ctx.lineTo(sx + sTile, sy + sTile);
+                        this.ctx.stroke();
+                    }
+                    if (!mask.left) {
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(sx, sy);
+                        this.ctx.lineTo(sx, sy + sTile);
+                        this.ctx.stroke();
+                    }
+                    if (!mask.right) {
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(sx + sTile, sy);
+                        this.ctx.lineTo(sx + sTile, sy + sTile);
+                        this.ctx.stroke();
+                    }
+                    // Inner-Corner Schattierung als kleiner Hauch Autowall
+                    this.ctx.fillStyle = isVoid ? 'rgba(20,20,20,0.2)' : 'rgba(255,255,255,0.08)';
+                    if (!mask.up && !mask.left) this.ctx.fillRect(sx, sy, sTile * 0.25, sTile * 0.25);
+                    if (!mask.up && !mask.right) this.ctx.fillRect(sx + sTile * 0.75, sy, sTile * 0.25, sTile * 0.25);
+                    if (!mask.down && !mask.left) this.ctx.fillRect(sx, sy + sTile * 0.75, sTile * 0.25, sTile * 0.25);
+                    if (!mask.down && !mask.right) this.ctx.fillRect(sx + sTile * 0.75, sy + sTile * 0.75, sTile * 0.25, sTile * 0.25);
                 } else if (tile === TILE.OBSTACLE) {
                     this.ctx.fillStyle = '#555';
                     this.ctx.fillRect(sx, sy, sTile, sTile);

@@ -9,7 +9,7 @@ import PATTERN_REGISTRY, { makeFallbackPattern, DOOR_MASK, maskFromNeighbors } f
 import { RoomDistributionManager, FLOOR_CONFIG } from './roomDistributionManager.js';
 import { ITEM_DEFINITIONS } from './items/itemData.js';
 import { SaveManager } from './saveManager.js';
-import { TILE, TILE_SIZE } from './constants.js';
+import { TILE, TILE_SIZE, SOLID_TILES } from './constants.js';
 
 // Utility: Fisher-Yates Shuffle
 function shuffleInPlace(arr) {
@@ -694,7 +694,7 @@ export class GameMap {
                 const tile = tiles[r][c];
                 let solid = false;
                 
-                if (tile === TILE.WALL || tile === TILE.OBSTACLE) {
+                if (SOLID_TILES.has(tile)) {
                     solid = true;
                 } else if (tile === TILE.DOOR_NORTH || tile === TILE.DOOR_SOUTH || 
                            tile === TILE.DOOR_EAST || tile === TILE.DOOR_WEST) {

@@ -63,6 +63,30 @@ export function checkCollision(rect1, rect2) {
     );
 }
 
+// Autotile: 8-Way-Neighbor-Check für Wände/Void/etc.
+// wallLikeIds: Set oder Array der IDs, die als "wandartig" gelten
+export function getWallNeighborMask(grid, row, col, wallLikeIds) {
+    const rows = grid.length;
+    const cols = grid[0].length;
+    const isWallish = (r, c) => {
+        if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
+        return wallLikeIds.has ? wallLikeIds.has(grid[r][c]) : wallLikeIds.includes(grid[r][c]);
+    };
+
+    const mask = {
+        up: isWallish(row - 1, col),
+        down: isWallish(row + 1, col),
+        left: isWallish(row, col - 1),
+        right: isWallish(row, col + 1),
+        upLeft: isWallish(row - 1, col - 1),
+        upRight: isWallish(row - 1, col + 1),
+        downLeft: isWallish(row + 1, col - 1),
+        downRight: isWallish(row + 1, col + 1)
+    };
+
+    return mask;
+}
+
 /**
  * Überprüft ob ein Punkt in einem Rechteck liegt.
  * @param {number} px Punkt X
