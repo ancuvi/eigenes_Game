@@ -2,7 +2,7 @@
 
 import { isPointInRect } from './utils.js';
 import * as UI from './ui.js';
-import { RENDER_SCALE } from './constants.js';
+import { RENDER_SCALE, ACTUAL_SCALE } from './constants.js';
 
 export class InputHandler {
     constructor(canvas, player, map) {
@@ -33,12 +33,18 @@ export class InputHandler {
         event.preventDefault(); 
         const touch = event.touches[0];
         const rect = this.canvas.getBoundingClientRect();
-        this.startDrag(touch.clientX - rect.left, touch.clientY - rect.top);
+        this.startDrag(
+            (touch.clientX - rect.left) / ACTUAL_SCALE, 
+            (touch.clientY - rect.top) / ACTUAL_SCALE
+        );
     }
 
     handleMouseDown(event) {
         const rect = this.canvas.getBoundingClientRect();
-        this.startDrag(event.clientX - rect.left, event.clientY - rect.top);
+        this.startDrag(
+            (event.clientX - rect.left) / ACTUAL_SCALE, 
+            (event.clientY - rect.top) / ACTUAL_SCALE
+        );
     }
     
     startDrag(x, y) {
@@ -52,7 +58,10 @@ export class InputHandler {
     handleMouseMove(event) {
         if (!this.isDragging) return;
         const rect = this.canvas.getBoundingClientRect();
-        this.updateDrag(event.clientX - rect.left, event.clientY - rect.top);
+        this.updateDrag(
+            (event.clientX - rect.left) / ACTUAL_SCALE, 
+            (event.clientY - rect.top) / ACTUAL_SCALE
+        );
     }
     
     handleTouchMove(event) {
@@ -60,7 +69,10 @@ export class InputHandler {
         event.preventDefault();
         const touch = event.touches[0];
         const rect = this.canvas.getBoundingClientRect();
-        this.updateDrag(touch.clientX - rect.left, touch.clientY - rect.top);
+        this.updateDrag(
+            (touch.clientX - rect.left) / ACTUAL_SCALE, 
+            (touch.clientY - rect.top) / ACTUAL_SCALE
+        );
     }
     
     updateDrag(x, y) {
@@ -106,10 +118,14 @@ export class InputHandler {
         }
     }
 
-    processClick(screenX, screenY) {
-        // Adjust for Render Scale
-        let x = screenX / RENDER_SCALE;
-        let y = screenY / RENDER_SCALE;
+    processClick(virtualX, virtualY) {
+        // screenX/Y passed to this are now already Virtual coords (from startDrag/endDrag logic flow?)
+        // Wait, processClick is called in endDrag using this.startX/startY which are now VIRTUAL.
+        // So we don't need to divide by ACTUAL_SCALE again here.
+        // But we do need to divide by RENDER_SCALE if it were not 1 (for sprite scaling).
+        
+        let x = virtualX / RENDER_SCALE;
+        let y = virtualY / RENDER_SCALE;
         
         // Transform to World Space if camera exists
         if (this.camera) {
@@ -117,7 +133,7 @@ export class InputHandler {
             y += this.camera.y;
         }
         
-        console.log(`Click at ${x}, ${y} (Screen: ${screenX}, ${screenY})`);
+        console.log(`Click at ${x}, ${y} (Virtual: ${virtualX}, ${virtualY})`);
 
         // 0. Prüfen ob Tür angeklickt wurde
         const doorDir = this.map.getDoorAt(x, y);

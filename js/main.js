@@ -11,7 +11,7 @@ import * as UI from './ui.js';
 import { SaveManager } from './saveManager.js';
 import { ITEM_DEFINITIONS, RARITY_LEVELS } from './items/itemData.js';
 import { Item } from './item.js';
-import { RENDER_SCALE, TILE_SIZE } from './constants.js';
+import { RENDER_SCALE, TILE_SIZE, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, setActualScale } from './constants.js';
 import { AutoPilot } from './autopilot.js';
 
 class Game {
@@ -86,19 +86,30 @@ class Game {
     }
 
     handleResize() {
-        const container = document.getElementById('game-area');
-        if (container) {
-            this.canvas.width = container.clientWidth;
-            this.canvas.height = container.clientHeight;
-        } else {
-            this.canvas.width = window.innerWidth;
-            this.canvas.height = window.innerHeight;
-        }
+        const screenW = window.innerWidth;
+        const screenH = window.innerHeight;
+
+        const scale = Math.floor(Math.min(
+            screenW / VIRTUAL_WIDTH,
+            screenH / VIRTUAL_HEIGHT
+        ));
         
-        // Update Camera Viewport (World Units)
+        const safeScale = Math.max(1, scale);
+        setActualScale(safeScale);
+
+        // Canvas Styles (Display Size)
+        this.canvas.style.width = (VIRTUAL_WIDTH * safeScale) + "px";
+        this.canvas.style.height = (VIRTUAL_HEIGHT * safeScale) + "px";
+        this.canvas.style.imageRendering = "pixelated";
+        
+        // Canvas Internal Resolution (Fixed)
+        this.canvas.width = VIRTUAL_WIDTH;
+        this.canvas.height = VIRTUAL_HEIGHT;
+        
+        // Update Camera Viewport
         if (this.camera) {
-            this.camera.width = this.canvas.width / RENDER_SCALE;
-            this.camera.height = this.canvas.height / RENDER_SCALE;
+            this.camera.width = VIRTUAL_WIDTH;
+            this.camera.height = VIRTUAL_HEIGHT;
         }
         
         if (!this.isRunning && this.renderer) {
@@ -110,8 +121,8 @@ class Game {
         console.log('Initializing Game...');
         this.handleResize();
         
-        // Camera operates in World Units (scaled down screen size)
-        this.camera = new Camera(this.canvas.width / RENDER_SCALE, this.canvas.height / RENDER_SCALE);
+        // Camera operates in Virtual Units
+        this.camera = new Camera(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
         this.inputHandler.camera = this.camera;
         this.renderer = new Renderer(this.canvas, this.player, this.map, this.inputHandler, this.camera);
 
@@ -532,8 +543,8 @@ class Game {
 
     centerPlayer() {
         // Center in World Space
-        const worldW = this.canvas.width / RENDER_SCALE;
-        const worldH = this.canvas.height / RENDER_SCALE;
+        const worldW = VIRTUAL_WIDTH;
+        const worldH = VIRTUAL_HEIGHT;
         this.player.x = worldW / 2 - this.player.width / 2;
         this.player.y = worldH / 2 - this.player.height / 2;
         this.player.targetX = this.player.x;
@@ -583,8 +594,8 @@ class Game {
     update(dt) {
         if (this.gameState === 'START') {
             this.menuTime += dt;
-            const worldW = this.canvas.width / RENDER_SCALE;
-            const worldH = this.canvas.height / RENDER_SCALE;
+            const worldW = VIRTUAL_WIDTH;
+            const worldH = VIRTUAL_HEIGHT;
             const centerY = worldH / 2 - this.player.height / 2;
             
             // Bounce in World Units (reduce bounce height to match scale?)

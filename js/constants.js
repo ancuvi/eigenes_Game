@@ -1,5 +1,11 @@
 export const TILE_SIZE = 16;
-export const RENDER_SCALE = 3; // Skaliert 16px Tiles auf 48px Bildschirmgröße
+export const RENDER_SCALE = 1; // Skaliert 16px Tiles auf VIRTUAL Pixels (1:1 wenn VIRTUAL_WIDTH klein ist)
+
+export const VIRTUAL_WIDTH = 480;
+export const VIRTUAL_HEIGHT = 270;
+
+export let ACTUAL_SCALE = 1; 
+export function setActualScale(s) { ACTUAL_SCALE = s; }
 
 // Entity Sizes (in World Pixels)
 export const PLAYER_SIZE = 16;
