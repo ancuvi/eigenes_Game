@@ -5,6 +5,7 @@ export class MapOverlay {
         this.map = map;
         this.canvas = document.getElementById('map-canvas');
         this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+        if (this.ctx) this.ctx.imageSmoothingEnabled = false;
         this.overlay = document.getElementById('map-overlay');
         this.toggleBtn = document.getElementById('map-toggle');
         this.closeBtn = document.getElementById('map-close');

@@ -1,8 +1,11 @@
 export const TILE_SIZE = 16;
 export const RENDER_SCALE = 1; // Skaliert 16px Tiles auf VIRTUAL Pixels (1:1 wenn VIRTUAL_WIDTH klein ist)
 
-export const VIRTUAL_WIDTH = 480;
-export const VIRTUAL_HEIGHT = 270;
+export const ROOM_TILES_W = 15;
+export const ROOM_TILES_H = 9;
+
+export const VIRTUAL_WIDTH = ROOM_TILES_W * TILE_SIZE; // 240
+export const VIRTUAL_HEIGHT = ROOM_TILES_H * TILE_SIZE; // 144
 
 export let ACTUAL_SCALE = 1; 
 export function setActualScale(s) { ACTUAL_SCALE = s; }

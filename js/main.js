@@ -86,26 +86,31 @@ class Game {
     }
 
     handleResize() {
+        // Keep the logical canvas fixed at the virtual Isaac-style resolution.
         const screenW = window.innerWidth;
         const screenH = window.innerHeight;
 
-        const scale = Math.floor(Math.min(
-            screenW / VIRTUAL_WIDTH,
-            screenH / VIRTUAL_HEIGHT
-        ));
-        
+        const scale = Math.floor(
+            Math.min(screenW / VIRTUAL_WIDTH, screenH / VIRTUAL_HEIGHT)
+        );
         const safeScale = Math.max(1, scale);
         setActualScale(safeScale);
 
-        // Canvas Styles (Display Size)
-        this.canvas.style.width = (VIRTUAL_WIDTH * safeScale) + "px";
-        this.canvas.style.height = (VIRTUAL_HEIGHT * safeScale) + "px";
-        this.canvas.style.imageRendering = "pixelated";
-        
+        const displayWidth = VIRTUAL_WIDTH * safeScale;
+        const displayHeight = VIRTUAL_HEIGHT * safeScale;
+
         // Canvas Internal Resolution (Fixed)
         this.canvas.width = VIRTUAL_WIDTH;
         this.canvas.height = VIRTUAL_HEIGHT;
+
+        // Canvas Styles (Display Size)
+        this.canvas.style.width = `${displayWidth}px`;
+        this.canvas.style.height = `${displayHeight}px`;
+        this.canvas.style.imageRendering = 'pixelated';
         
+        // Debug output to verify the calculated integer scale in the browser console.
+        console.log("Resize:", {screenW,screenH,scale,safeScale,display: {w:this.canvas.style.width, h:this.canvas.style.height}});
+
         // Update Camera Viewport
         if (this.camera) {
             this.camera.width = VIRTUAL_WIDTH;
@@ -526,10 +531,9 @@ class Game {
         // Spawn Player correctly in Room Center
         if (this.map.currentRoom) {
             const tiles = this.map.currentRoom.tiles;
-            const spawnX = Math.floor(tiles[0].length / 2);
-            const spawnY = Math.floor(tiles.length / 2);
-            this.player.x = spawnX * TILE_SIZE;
-            this.player.y = spawnY * TILE_SIZE;
+            // Center spawn using Virtual Resolution
+            this.player.x = (VIRTUAL_WIDTH - this.player.width) / 2;
+            this.player.y = (VIRTUAL_HEIGHT - this.player.height) / 2;
             
             // Force Camera Update immediately
             if (this.camera) {
@@ -545,8 +549,8 @@ class Game {
         // Center in World Space
         const worldW = VIRTUAL_WIDTH;
         const worldH = VIRTUAL_HEIGHT;
-        this.player.x = worldW / 2 - this.player.width / 2;
-        this.player.y = worldH / 2 - this.player.height / 2;
+        this.player.x = (worldW - this.player.width) / 2;
+        this.player.y = (worldH - this.player.height) / 2;
         this.player.targetX = this.player.x;
         this.player.targetY = this.player.y;
     }
@@ -596,14 +600,14 @@ class Game {
             this.menuTime += dt;
             const worldW = VIRTUAL_WIDTH;
             const worldH = VIRTUAL_HEIGHT;
-            const centerY = worldH / 2 - this.player.height / 2;
+            const centerY = (worldH - this.player.height) / 2;
             
             // Bounce in World Units (reduce bounce height to match scale?)
             // 60px bounce is huge in 16x16 world if scale is 3 (180px screen).
             // Let's reduce it to 20 world units.
             const bounce = Math.abs(Math.sin(this.menuTime * 5) * 20); 
             
-            this.player.x = worldW / 2 - this.player.width / 2;
+            this.player.x = (worldW - this.player.width) / 2;
             this.player.y = centerY - bounce;
             this.player.targetX = this.player.x;
             this.player.targetY = this.player.y;

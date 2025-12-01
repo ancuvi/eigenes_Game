@@ -37,6 +37,10 @@ function generatePatterns(layouts, masks, type = 'Normal', idPrefix = 'room') {
 function applyWallsAndDoors(grid, mask) {
     const rows = grid.length;
     const cols = grid[0].length;
+    
+    // Target Dimensions: 15 x 9
+    // Mid Col = 7
+    // Mid Row = 4
 
     // 1. Set walls on edges
     for (let r = 0; r < rows; r++) {
@@ -47,70 +51,38 @@ function applyWallsAndDoors(grid, mask) {
         }
     }
 
-    // 2. Set Doors
-    // Door width/position logic. 
-    // Assuming center of wall. 
-    // Let's make doors 3 tiles wide for now to match previous logic roughly, 
-    // or maybe 2 tiles? previous was width=3. 
-    // Center is Math.floor(cols / 2). 
-    // If cols=13, center=6. width=3 => 5, 6, 7.
-    
-    const midCol = Math.floor(cols / 2);
-    const midRow = Math.floor(rows / 2);
+    // 2. Set Doors (Single Tile)
+    const midCol = 7;
+    const midRow = 4;
 
-    // North
+    // North (7, 0)
     if (mask & DOOR_MASK.NORTH) {
-        // Only set the top row (r=0) to DOOR
         grid[0][midCol] = TILE.DOOR_NORTH;
-        grid[0][midCol - 1] = TILE.DOOR_NORTH;
-        grid[0][midCol + 1] = TILE.DOOR_NORTH;
-        
-        // Clear the tiles below the door so player can walk in?
-        // Previous carveDoors cleared a 3x2 area.
-        // If we have 16x16 tiles, and walls are 1 tile thick, we probably want floor right inside the door.
-        // r=1 is inside.
-        grid[1][midCol] = TILE.FLOOR;
-        grid[1][midCol - 1] = TILE.FLOOR;
-        grid[1][midCol + 1] = TILE.FLOOR;
+        grid[1][midCol] = TILE.FLOOR; // Walkable inside
     }
 
-    // South
+    // South (7, 8)
     if (mask & DOOR_MASK.SOUTH) {
         grid[rows - 1][midCol] = TILE.DOOR_SOUTH;
-        grid[rows - 1][midCol - 1] = TILE.DOOR_SOUTH;
-        grid[rows - 1][midCol + 1] = TILE.DOOR_SOUTH;
-        
-        grid[rows - 2][midCol] = TILE.FLOOR;
-        grid[rows - 2][midCol - 1] = TILE.FLOOR;
-        grid[rows - 2][midCol + 1] = TILE.FLOOR;
+        grid[rows - 2][midCol] = TILE.FLOOR; // Walkable inside
     }
 
-    // West
+    // West (0, 4)
     if (mask & DOOR_MASK.WEST) {
         grid[midRow][0] = TILE.DOOR_WEST;
-        grid[midRow - 1][0] = TILE.DOOR_WEST;
-        grid[midRow + 1][0] = TILE.DOOR_WEST;
-        
-        grid[midRow][1] = TILE.FLOOR;
-        grid[midRow - 1][1] = TILE.FLOOR;
-        grid[midRow + 1][1] = TILE.FLOOR;
+        grid[midRow][1] = TILE.FLOOR; // Walkable inside
     }
 
-    // East
+    // East (14, 4)
     if (mask & DOOR_MASK.EAST) {
         grid[midRow][cols - 1] = TILE.DOOR_EAST;
-        grid[midRow - 1][cols - 1] = TILE.DOOR_EAST;
-        grid[midRow + 1][cols - 1] = TILE.DOOR_EAST;
-        
-        grid[midRow][cols - 2] = TILE.FLOOR;
-        grid[midRow - 1][cols - 2] = TILE.FLOOR;
-        grid[midRow + 1][cols - 2] = TILE.FLOOR;
+        grid[midRow][cols - 2] = TILE.FLOOR; // Walkable inside
     }
 
     return grid;
 }
 
-export function makeFallbackPattern(mask, type = 'Normal', rows = 9, cols = 13) {
+export function makeFallbackPattern(mask, type = 'Normal', rows = 9, cols = 15) {
     const base = Array.from({ length: rows }, (_, r) =>
         Array.from({ length: cols }, (_, c) => 0) // Initialize with 0 (FLOOR)
     );

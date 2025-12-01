@@ -1,29 +1,35 @@
+html, body {
+    width: 100%;
+    height: 100%;
+}
+
 body {
     margin: 0;
     padding: 0;
     font-family: 'Courier New', Courier, monospace;
-    background-color: #1a1a1a;
+    background-color: #000;
     color: #f0f0f0;
     overflow: hidden; /* Scrollbars verhindern */
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
 }
 
 #game-container {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    background-color: #222;
+    position: fixed;
+    inset: 0;
+    background-color: #000;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Header Area */
 #ui-header {
+    display: none; /* UI ausgeblendet */
     height: 60px;
     background-color: #111;
     border-bottom: 2px solid #333;
-    display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 15px;
@@ -40,11 +46,9 @@ body {
 
 /* Canvas füllt den mittleren Bereich */
 #game-area {
-    width: 100%;
     position: relative;
-    flex-grow: 1; /* Nimmt restlichen Platz */
-    overflow: hidden;
-    background-color: #3b3b3b;
+    flex: 0 0 auto;
+    background-color: #000;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -52,16 +56,15 @@ body {
 
 canvas {
     display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
     /* Width/Height set via JS for integer scaling */
 }
 
 /* Start Screen */
 #start-screen {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -465,6 +468,7 @@ canvas {
 
 /* Upgrade Panel (Ersetzt Combat Log) */
 #upgrade-panel {
+    display: none; /* UI ausgeblendet */
     width: 100%;
     height: 180px; /* Erhöht für Mini-Stats */
     flex-shrink: 0;
@@ -473,7 +477,6 @@ canvas {
     background: #111;
     border-top: 2px solid #333;
     z-index: 10;
-    display: flex;
     flex-direction: column; /* Vertikal anordnen */
     justify-content: center;
     align-items: center;
@@ -586,6 +589,7 @@ canvas {
 
 /* Navigation Overlay (Pfeile) */
 #nav-overlay {
+    display: none; /* UI ausgeblendet */
     position: absolute;
     top: 0;
     left: 0;

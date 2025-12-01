@@ -5,13 +5,18 @@ import { getWallNeighborMask } from './utils.js';
 export class Renderer {
     constructor(canvas, player, map, inputHandler, camera) {
         this.canvas = canvas;
+        // Ensure the onscreen canvas matches the fixed virtual resolution.
+        this.canvas.width = VIRTUAL_WIDTH;
+        this.canvas.height = VIRTUAL_HEIGHT;
         this.ctx = canvas.getContext('2d');
+        if (this.ctx) this.ctx.imageSmoothingEnabled = false;
         
         // Offscreen Buffer
         this.buffer = document.createElement('canvas');
         this.buffer.width = VIRTUAL_WIDTH;
         this.buffer.height = VIRTUAL_HEIGHT;
         this.bufferCtx = this.buffer.getContext('2d');
+        if (this.bufferCtx) this.bufferCtx.imageSmoothingEnabled = false;
 
         this.player = player;
         this.map = map;
