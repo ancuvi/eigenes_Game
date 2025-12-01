@@ -104,29 +104,43 @@ export function isPointInRect(px, py, rect) {
 }
 
 /**
- * Stößt ein Ziel von einer Quelle weg.
- * @param {object} target {x, y, width, height}
+ * Stößt ein Ziel von einer Quelle weg (Velocity-basiert).
+ * @param {object} target Entity mit Velocity-Support (vel oder vx/vy)
  * @param {object} source {x, y, width, height}
- * @param {number} force Pixel die geschoben werden
- * @param {object} bounds Optional {width, height} for clamping
+ * @param {number} force Stärke des Stoßes (wird in Geschwindigkeit umgerechnet)
+ * @param {object} bounds Veraltet, wird ignoriert da Collision Logic das übernimmt
  */
 export function pushBack(target, source, force, bounds = null) {
     const tx = target.x + target.width / 2;
     const ty = target.y + target.height / 2;
     const sx = source.x + source.width / 2;
     const sy = source.y + source.height / 2;
-    const angle = Math.atan2(ty - sy, tx - sx);
     
-    let nx = target.x + Math.cos(angle) * force;
-    let ny = target.y + Math.sin(angle) * force;
+    const dx = tx - sx;
+    const dy = ty - sy;
+    const len = Math.max(0.1, Math.sqrt(dx * dx + dy * dy));
+    const dirX = dx / len;
+    const dirY = dy / len;
 
-    if (bounds) {
-        // Simple clamp to room bounds (assuming room starts at 0,0)
-        // Ensure entity stays fully inside
-        nx = Math.max(0, Math.min(nx, bounds.width - target.width));
-        ny = Math.max(0, Math.min(ny, bounds.height - target.height));
+    // Umrechnung von "Teleport-Pixeln" in "Geschwindigkeit"
+    // Heuristik: Pixel * 5 entspricht etwa der Initialgeschwindigkeit für ähnliche Distanz
+    const power = force * 6; 
+
+    // Case 1: Enemy (hat vel object und knockbackTimer)
+    if (target.vel && typeof target.knockbackTimer === 'number') {
+        target.vel.x = dirX * power;
+        target.vel.y = dirY * power;
+        target.knockbackTimer = 0.2; // 200ms Rückstoß
     }
-
-    target.x = nx;
-    target.y = ny;
+    // Case 2: Player (hat vx, vy und nutzt Friction im Update)
+    else if (typeof target.vx === 'number' && typeof target.vy === 'number') {
+        target.vx += dirX * power;
+        target.vy += dirY * power;
+        // Player braucht keinen Timer, da seine Physik engine friction anwendet
+    }
+    // Fallback: Teleport (falls Entity keine Physik hat)
+    else {
+        target.x += dirX * force;
+        target.y += dirY * force;
+    }
 }

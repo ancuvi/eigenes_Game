@@ -64,46 +64,88 @@ export class Enemy {
             stun: { timer: 0 },
             slow: { timer: 0, strength: 0 }
         };
+
+        // Knockback (Velocity-based)
+        this.vel = { x: 0, y: 0 }; // Knockback Velocity only
+        this.knockbackTimer = 0;
+        
+        // Temp storage for AI movement intention (reset each frame)
+        this.moveVel = { x: 0, y: 0 };
     }
 
     update(dt, player, map) {
         if (this.isDead()) return;
 
+        // Reset movement intention for this frame
+        this.moveVel.x = 0;
+        this.moveVel.y = 0;
+
         // Process Status Effects
         if (this.statusEffects.stun.timer > 0) {
             this.statusEffects.stun.timer -= dt;
-            return; // Stunned: No movement, no attack
-        }
-        if (this.statusEffects.slow.timer > 0) {
-            this.statusEffects.slow.timer -= dt;
+            // No return here yet, we still process physics (knockback)!
+            // But we skip AI logic.
         } else {
-            this.statusEffects.slow.strength = 0;
-        }
-
-        // Cooldown
-        if (this.attackCooldown > 0) {
-            this.attackCooldown -= dt;
-        }
-
-        const distToPlayer = getDistance(this.x, this.y, player.x, player.y);
-        
-        // Aggro Logic
-        if (distToPlayer <= this.aggroRange) {
-            this.isAggro = true;
-            this.target = player;
-        }
-        if (this.isAggro && distToPlayer > this.leashRange) {
-            this.isAggro = false;
-            this.target = null;
-        }
-
-        if (this.isAggro && !player.isDead()) {
-            if (this.type === 'ranged') {
-                this.updateRanged(dt, player, distToPlayer, map);
+            // AI Logic only if not stunned
+            if (this.statusEffects.slow.timer > 0) {
+                this.statusEffects.slow.timer -= dt;
             } else {
-                this.updateMelee(dt, player, distToPlayer, map);
+                this.statusEffects.slow.strength = 0;
+            }
+
+            // Cooldown
+            if (this.attackCooldown > 0) {
+                this.attackCooldown -= dt;
+            }
+
+            const distToPlayer = getDistance(this.x, this.y, player.x, player.y);
+            
+            // Aggro Logic
+            if (distToPlayer <= this.aggroRange) {
+                this.isAggro = true;
+                this.target = player;
+            }
+            if (this.isAggro && distToPlayer > this.leashRange) {
+                this.isAggro = false;
+                this.target = null;
+            }
+
+            if (this.isAggro && !player.isDead()) {
+                if (this.type === 'ranged') {
+                    this.updateRanged(dt, player, distToPlayer, map);
+                } else {
+                    this.updateMelee(dt, player, distToPlayer, map);
+                }
             }
         }
+
+        // --- Physics & Knockback Integration ---
+        
+        // Update Knockback Timer & Friction
+        if (this.knockbackTimer > 0) {
+            this.knockbackTimer -= dt;
+            const friction = 6; // Dämpfung
+            this.vel.x -= this.vel.x * friction * dt;
+            this.vel.y -= this.vel.y * friction * dt;
+
+            if (this.knockbackTimer <= 0) {
+                this.knockbackTimer = 0;
+                this.vel.x = 0;
+                this.vel.y = 0;
+            }
+        }
+
+        // Combine AI Movement + Knockback
+        // AI Movement (moveVel) is already Speed * Dir.
+        const totalVx = this.moveVel.x + this.vel.x;
+        const totalVy = this.moveVel.y + this.vel.y;
+
+        // Apply to Position
+        this.x += totalVx * dt;
+        this.y += totalVy * dt;
+
+        // Note: Collision Check (Wall/Solid) is handled in Map.update via checkEntityCollision
+        // which pushes the entity back out of walls.
     }
 
     updateMelee(dt, player, dist, map) {
@@ -114,7 +156,7 @@ export class Enemy {
                 this.performMeleeAttack(player, map);
             }
         } else {
-            this.moveTowards(player.x, player.y, dt);
+            this.calculateMoveTowards(player.x, player.y);
         }
     }
 
@@ -124,11 +166,9 @@ export class Enemy {
 
         if (dist < kiteDist) {
             // Weglaufen
-            // Vektor vom Spieler weg: this - player
             const dx = this.x - player.x;
             const dy = this.y - player.y;
-            // Zielpunkt berechnen
-            this.moveTowards(this.x + dx, this.y + dy, dt);
+            this.calculateMoveTowards(this.x + dx, this.y + dy);
         } else if (dist < shootDist) {
             // Stehen bleiben und schießen
             if (this.attackCooldown <= 0 && map) {
@@ -136,22 +176,23 @@ export class Enemy {
             }
         } else {
             // Annähern
-            this.moveTowards(player.x, player.y, dt);
+            this.calculateMoveTowards(player.x, player.y);
         }
     }
 
-    moveTowards(tx, ty, dt) {
+    calculateMoveTowards(tx, ty) {
         let speed = this.speed;
         if (this.statusEffects.slow.timer > 0) {
             speed *= (1 - this.statusEffects.slow.strength);
         }
         
-        const moveDist = speed * dt;
         const dirX = tx - this.x;
         const dirY = ty - this.y;
         const len = Math.max(1, Math.sqrt(dirX * dirX + dirY * dirY));
-        this.x += (dirX / len) * moveDist;
-        this.y += (dirY / len) * moveDist;
+        
+        // Set intention velocity
+        this.moveVel.x = (dirX / len) * speed;
+        this.moveVel.y = (dirY / len) * speed;
     }
 
     applyStatus(type, duration, strength = 0) {
