@@ -415,20 +415,43 @@ export class Renderer {
         ctx.ellipse(shadowX, shadowY, sw * 0.3, sh * 0.15, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Sprite Body
-        ctx.fillStyle = color;
-        ctx.fillRect(sx, sy, sw, sh);
-        
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2 * RENDER_SCALE;
-        ctx.strokeRect(sx, sy, sw, sh);
-        
-        ctx.fillStyle = '#000';
-        // Eyes proportional to size
-        const eyeSize = sw * 0.15;
-        const eyeY = sy + sh * 0.3;
-        ctx.fillRect(sx + sw * 0.25, eyeY, eyeSize, eyeSize); 
-        ctx.fillRect(sx + sw * 0.75 - eyeSize, eyeY, eyeSize, eyeSize); 
+        if (entity === this.player && entity.sprites) {
+            // Player Rendering (Paper Doll)
+            const bodyImg = entity.isMoving ? entity.sprites.body['walk' + entity.walkFrame] : entity.sprites.body.idle;
+            // Use attack direction if available (not yet implemented fully), else movement direction
+            const headImg = entity.sprites.head[entity.headDirection] || entity.sprites.head.front;
+            
+            // Draw Body
+            if (bodyImg && bodyImg.complete) {
+                ctx.drawImage(bodyImg, sx, sy, sw, sh);
+            } else {
+                // Fallback if image not loaded
+                ctx.fillStyle = color;
+                ctx.fillRect(sx, sy, sw, sh);
+            }
+
+            // Draw Head
+            if (headImg && headImg.complete) {
+                // Head sits slightly higher (-4px) + Bobbing (+offset)
+                const headOffset = (-4 + entity.bobbingOffset) * RENDER_SCALE;
+                ctx.drawImage(headImg, sx, sy + headOffset, sw, sh);
+            }
+        } else {
+            // Default Rendering (Enemies)
+            ctx.fillStyle = color;
+            ctx.fillRect(sx, sy, sw, sh);
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2 * RENDER_SCALE;
+            ctx.strokeRect(sx, sy, sw, sh);
+            
+            ctx.fillStyle = '#000';
+            // Eyes proportional to size
+            const eyeSize = sw * 0.15;
+            const eyeY = sy + sh * 0.3;
+            ctx.fillRect(sx + sw * 0.25, eyeY, eyeSize, eyeSize); 
+            ctx.fillRect(sx + sw * 0.75 - eyeSize, eyeY, eyeSize, eyeSize); 
+        }
         
         // Debug Hitbox
         if (DEBUG_HITBOX) {

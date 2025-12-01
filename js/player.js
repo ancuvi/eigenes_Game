@@ -124,6 +124,39 @@ export class Player {
         this.interactionRange = this.range; // Pixel
         this.attackCooldownTimer = 0;
         this.weapon = 'fist'; // Default weapon
+
+        // Rendering / Animation
+        this.sprites = { body: {}, head: {} };
+        this.loadAssets();
+        
+        this.animTimer = 0;
+        this.walkFrame = 1; // 1-4
+        this.bobbingOffset = 0;
+        this.headDirection = 'front';
+        this.lastInputX = 0;
+        this.lastInputY = 1; // Default looking down
+    }
+
+    loadAssets() {
+        const load = (src) => {
+            const img = new Image();
+            img.src = src;
+            return img;
+        };
+
+        // Body
+        this.sprites.body.idle = load('assets/player/body/body_idle.png');
+        this.sprites.body.walk1 = load('assets/player/body/body_walk1.png');
+        this.sprites.body.walk2 = load('assets/player/body/body_walk2.png');
+        this.sprites.body.walk3 = load('assets/player/body/body_walk3.png');
+        this.sprites.body.walk4 = load('assets/player/body/body_walk4.png');
+
+        // Head
+        this.sprites.head.front = load('assets/player/head/head_front.png');
+        this.sprites.head.back = load('assets/player/head/head_back.png');
+        this.sprites.head.left = load('assets/player/head/head_left.png');
+        this.sprites.head.right = load('assets/player/head/head_right.png');
+        this.sprites.head.shooting = load('assets/player/head/head_shooting.png'); // Special case?
     }
     
     addLoot(itemId, rarity) {
@@ -509,6 +542,43 @@ export class Player {
              }
         }
 
+        // Animation Logic
+        this.updateAnimation(dt);
+    }
+
+    updateAnimation(dt) {
+        // Head Direction (based on movement input or velocity)
+        if (this.isMoving) {
+            if (Math.abs(this.vx) > Math.abs(this.vy)) {
+                if (this.vx > 0) this.headDirection = 'right';
+                else this.headDirection = 'left';
+            } else {
+                if (this.vy > 0) this.headDirection = 'front'; // Down
+                else this.headDirection = 'back'; // Up
+            }
+        }
+        
+        // Body Animation & Bobbing
+        if (this.isMoving) {
+            this.animTimer += dt;
+            if (this.animTimer > 0.15) { // 150ms per frame
+                this.animTimer = 0;
+                this.walkFrame++;
+                if (this.walkFrame > 4) this.walkFrame = 1;
+            }
+            
+            // Bobbing on frames 2 and 4
+            if (this.walkFrame === 2 || this.walkFrame === 4) {
+                this.bobbingOffset = 1;
+            } else {
+                this.bobbingOffset = 0;
+            }
+        } else {
+            // Idle
+            this.walkFrame = 1;
+            this.bobbingOffset = 0;
+            // Keep last head direction? Yes.
+        }
     }
     
     autoAttack(dt, enemies, map) {
