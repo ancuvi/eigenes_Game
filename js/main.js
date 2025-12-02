@@ -99,6 +99,14 @@ class Game {
         }, 500);
     }
 
+    checkPatchNotes() {
+        // Show Patch Notes on every fresh load (Init), but not on internal state changes
+        const modal = document.getElementById('patch-notes-modal');
+        if (modal) {
+            this.toggleModal(modal, true);
+        }
+    }
+
     handleResize() {
         // Keep the logical canvas fixed at the virtual Isaac-style resolution.
         const screenW = window.innerWidth;
@@ -177,6 +185,7 @@ class Game {
                     this.transitionState(() => {
                         if (loadingScreen) loadingScreen.classList.add('hidden');
                         if (this.startScreen) this.startScreen.classList.remove('hidden');
+                        this.checkPatchNotes();
                     });
                 }, 3000);
             });
