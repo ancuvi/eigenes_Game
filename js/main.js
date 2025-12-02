@@ -9,6 +9,7 @@ import { MapOverlay } from './mapOverlay.js';
 import { StatsOverlay } from './statsOverlay.js';
 import * as UI from './ui.js';
 import { SaveManager } from './saveManager.js';
+import { BalanceManager } from './balanceManager.js';
 import { ITEM_DEFINITIONS, RARITY_LEVELS } from './items/itemData.js';
 import { Item } from './item.js';
 import { RENDER_SCALE, TILE_SIZE, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, setActualScale } from './constants.js';
@@ -44,7 +45,6 @@ class Game {
 
         // State Management
         this.gameState = 'START'; 
-        this.menuTime = 0;
 
         // UI Elements
         this.startScreen = document.getElementById('start-screen');
@@ -57,6 +57,7 @@ class Game {
         
         // Modals
         this.stageModal = document.getElementById('stage-modal');
+        this.stageInfoModal = document.getElementById('stage-info-modal');
         this.inventoryModal = document.getElementById('inventory-modal');
         this.startUpgradeModal = document.getElementById('start-upgrade-modal');
         this.inventoryGrid = document.getElementById('inventory-grid');
@@ -482,6 +483,9 @@ class Game {
     renderStageSelect() {
         this.stageList.innerHTML = '';
         for (let i = 1; i <= 5; i++) {
+            const row = document.createElement('div');
+            row.className = 'stage-btn-row';
+
             const btn = document.createElement('div');
             btn.className = 'stage-btn';
             btn.textContent = `Stage ${i}`;
@@ -502,9 +506,73 @@ class Game {
                     this.renderStageSelect(); // Refresh highlight
                 }
             });
+
+            // Info Button
+            const infoBtn = document.createElement('div');
+            infoBtn.className = 'stage-info-btn';
+            infoBtn.textContent = 'i';
+            infoBtn.title = `View Stage ${i} Loot Info`;
+            infoBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showStageInfo(i);
+            });
             
-            this.stageList.appendChild(btn);
+            row.appendChild(btn);
+            row.appendChild(infoBtn);
+            this.stageList.appendChild(row);
         }
+    }
+
+    showStageInfo(stage) {
+        const data = BalanceManager.getLootTable(stage);
+        const title = document.getElementById('stage-info-title');
+        const content = document.getElementById('stage-info-content');
+        
+        title.textContent = `Stage ${stage} Loot Chances`;
+        
+        let html = '';
+        const types = [
+            { key: 'normal', label: 'Normal Enemies' },
+            { key: 'miniboss', label: 'Mini-Bosses' },
+            { key: 'boss', label: 'Bosses' },
+            { key: 'treasure', label: 'Treasure Chests' }
+        ];
+
+        types.forEach(t => {
+            const table = data[t.key];
+            if (table) {
+                html += `<h3>${t.label}</h3>`;
+                html += `<table class="loot-table">
+                    <thead><tr><th>Rarity</th><th>Chance</th></tr></thead>
+                    <tbody>`;
+                
+                const rarities = [
+                    { k: 'grey', c: 'text-rarity-grey' },
+                    { k: 'green', c: 'text-rarity-green' },
+                    { k: 'blue', c: 'text-rarity-blue' },
+                    { k: 'purple', c: 'text-rarity-purple' },
+                    { k: 'gold', c: 'text-rarity-gold' },
+                    { k: 'red', c: 'text-rarity-red' }
+                ];
+
+                let total = 0;
+                rarities.forEach(r => {
+                    const val = table[r.k] || 0;
+                    if (val > 0) {
+                        html += `<tr>
+                            <td class="${r.c}">${r.k.toUpperCase()}</td>
+                            <td class="prob-val">${(val * 100).toFixed(0)}%</td>
+                        </tr>`;
+                        total += val;
+                    }
+                });
+                
+                html += `</tbody></table>`;
+            }
+        });
+
+        content.innerHTML = html;
+        this.toggleModal(this.stageInfoModal, true);
     }
 
     startGame() {
@@ -590,7 +658,14 @@ class Game {
             this.update(safeDt);
         }
         
-        this.renderer.draw();
+        if (this.gameState === 'START') {
+            // Schwarzer Hintergrund im Startmenü
+            const ctx = this.canvas.getContext('2d');
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        } else {
+            this.renderer.draw();
+        }
 
         requestAnimationFrame((ts) => this.gameLoop(ts));
     }
@@ -608,21 +683,6 @@ class Game {
         }
 
         if (this.gameState === 'START') {
-            this.menuTime += dt;
-            const worldW = VIRTUAL_WIDTH;
-            const worldH = VIRTUAL_HEIGHT;
-            const centerY = (worldH - this.player.height) / 2;
-            
-            // Bounce in World Units (reduce bounce height to match scale?)
-            // 60px bounce is huge in 16x16 world if scale is 3 (180px screen).
-            // Let's reduce it to 20 world units.
-            const bounce = Math.abs(Math.sin(this.menuTime * 5) * 20); 
-            
-            this.player.x = (worldW - this.player.width) / 2;
-            this.player.y = centerY - bounce;
-            this.player.targetX = this.player.x;
-            this.player.targetY = this.player.y;
-            this.player.isMoving = false;
             return;
         }
 
@@ -671,7 +731,6 @@ class Game {
         this.toggleUI(false);
         if (this.startScreen) this.startScreen.classList.remove('hidden');
         
-        this.menuTime = 0;
         this.centerPlayer(); 
     }
 

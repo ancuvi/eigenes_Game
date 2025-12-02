@@ -195,4 +195,26 @@ export class BalanceManager {
         if (rand < CONSTANTS.ROOM_WEIGHTS.EASY + CONSTANTS.ROOM_WEIGHTS.STANDARD) return CONSTANTS.ENEMY_COUNTS.STANDARD;
         return CONSTANTS.ENEMY_COUNTS.HARD;
     }
+
+    /**
+     * Gibt die Loot-Wahrscheinlichkeiten für eine Stage zurück.
+     * @param {number} stage 
+     */
+    static getLootTable(stage) {
+        const sIdx = Math.max(0, stage - 1);
+        
+        const getWeights = (key) => {
+            const table = LOOT_TABLES[key];
+            if (!table) return null;
+            const idx = Math.min(sIdx, table.length - 1);
+            return table[idx].weights;
+        };
+
+        return {
+            normal: getWeights('NORMAL'),
+            miniboss: getWeights('MINIBOSS'),
+            boss: getWeights('BOSS'),
+            treasure: getWeights('TREASURE')
+        };
+    }
 }

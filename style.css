@@ -363,7 +363,14 @@ canvas {
     max-height: 400px;
 }
 
+.stage-btn-row {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
 .stage-btn {
+    flex: 1;
     padding: 15px;
     background: #222;
     border: 1px solid #444;
@@ -383,6 +390,56 @@ canvas {
     opacity: 0.5;
     pointer-events: none;
     background: #111;
+}
+
+.stage-info-btn {
+    width: 50px;
+    background: #333;
+    border: 1px solid #555;
+    color: #4caf50;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 6px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.stage-info-btn:hover {
+    background: #444;
+    color: #fff;
+}
+
+/* Info Modal Content */
+.info-content {
+    color: #ccc;
+    font-family: monospace;
+    padding: 10px;
+    flex: 1;
+    overflow-y: auto; /* Enable scrolling */
+}
+
+.loot-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.loot-table th, .loot-table td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid #333;
+}
+
+.loot-table th {
+    color: #aaa;
+}
+
+.prob-val {
+    font-weight: bold;
+    text-align: right;
 }
 
 /* Stats im Header (Rechts) */
