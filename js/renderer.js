@@ -67,7 +67,7 @@ export class Renderer {
         const enemies = this.map.getEnemies();
         if (enemies) {
             enemies.forEach(enemy => {
-                this.drawEntity(enemy, '#e53935', camX, camY); // Kräftiges Rot
+                this.drawEntity(enemy, enemy.color || '#e53935', camX, camY);
                 this.drawHealthBar(enemy, camX, camY);
                 this.drawLabel(enemy, `${enemy.name} (Lvl ${enemy.level})`, camX, camY);
                 if (enemy.telegraphTimer > 0) {

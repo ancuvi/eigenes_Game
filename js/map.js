@@ -1,5 +1,5 @@
 // Map Klasse: Verwaltet das Grid und den aktuellen Raum
-import { Enemy } from './enemy.js';
+import { createEnemy } from './enemy.js';
 import { Projectile } from './projectile.js';
 import { Item } from './item.js';
 import { randomNumber, checkCollision } from './utils.js';
@@ -39,24 +39,21 @@ function spawnEnemiesInRoom(spawnPointsWorld, difficulty, stage, floor, forcedCo
     shuffled.forEach((pt) => {
         // Logic: Normal rooms only have normal enemies.
         // Boss room has Miniboss on floors 1-9, and Real Boss on floor 10.
-        let rank = 'normal';
-        let isMiniboss = false;
-        let isBoss = false;
-
+        let type = 'Glibber'; // Fallback
+        
         if (pt.isBoss) {
             if (floor === 10) {
-                rank = 'boss';
-                isBoss = true;
+                type = 'Ironhead';
             } else {
-                rank = 'miniboss';
-                isMiniboss = true;
+                type = 'NestBlock';
             }
+        } else {
+            // Pick Random Normal Enemy Type
+            const normalTypes = ['Glibber', 'Spucker', 'Bull', 'Surrer', 'Skelett'];
+            type = normalTypes[Math.floor(Math.random() * normalTypes.length)];
         }
 
-        const stats = BalanceManager.getEnemyStats(stage, floor, isMiniboss, isBoss);
-        const enemy = new Enemy(stats, pt.x, pt.y, rank);
-        enemy.rank = rank; 
-        enemy.type = Math.random() < 0.3 ? 'ranged' : 'melee';
+        const enemy = createEnemy(type, pt.x, pt.y, stage, floor);
         enemies.push(enemy);
     });
 
@@ -505,7 +502,9 @@ export class GameMap {
         // Enemies Update & Collision
         this.currentRoom.enemies.forEach(enemy => {
             enemy.update(dt, this.player, this);
-            this.checkEntityCollision(enemy); // Auch Gegner kollidieren mit Wänden
+            if (!enemy.ignoresWalls) {
+                this.checkEntityCollision(enemy); 
+            }
         });
 
         this.currentRoom.enemies = this.currentRoom.enemies.filter(e => {
