@@ -1,4 +1,4 @@
-import { randomNumber, getDistance, pushBack, checkCollision } from './utils.js';
+import { randomNumber, getDistance, pushBack, checkCollision, approach, clampLength } from './utils.js';
 import { Projectile } from './projectile.js';
 import { ENEMY_SIZE, BOSS_SIZE, MINIBOSS_SIZE, PLAYER_SIZE } from './constants.js';
 import { CONSTANTS, BalanceManager } from './balanceManager.js';
@@ -24,8 +24,9 @@ export class Enemy {
 
         // Physics
         this.vel = { x: 0, y: 0 };
-        this.friction = 6; // Default friction
-        this.speed = 60;   // Default movement speed
+        this.maxSpeed = 60;   // Target Max Speed
+        this.accel = 400;     // Acceleration
+        this.drag = 6;        // Exponential Drag
         this.knockbackTimer = 0;
         this.ignoresWalls = false;
 
@@ -53,7 +54,7 @@ export class Enemy {
         this.updateState(dt, player, map);
 
         // 3. Physics (Velocity & Friction)
-        this.updatePhysics(dt);
+        this.updatePhysics(dt, map);
         
         // 4. Combat (Contact Damage)
         // Check collision with player for simple contact damage
@@ -70,19 +71,15 @@ export class Enemy {
         }
     }
 
-    updatePhysics(dt) {
-        // Friction applied to Velocity
-        // If Knockback is active, friction might be handled there, 
-        // but here we apply it generally to all velocity for smooth movement.
-        // Unless 'Glibber' overrides friction.
-        
-        // Simple Damping
-        this.vel.x -= this.vel.x * this.friction * dt;
-        this.vel.y -= this.vel.y * this.friction * dt;
+    updatePhysics(dt, map) {
+        // Exponential Drag
+        const dragFactor = Math.exp(-this.drag * dt);
+        this.vel.x *= dragFactor;
+        this.vel.y *= dragFactor;
 
-        // Stop if very slow
-        if (Math.abs(this.vel.x) < 1) this.vel.x = 0;
-        if (Math.abs(this.vel.y) < 1) this.vel.y = 0;
+        // Zero-cutoff
+        if (Math.abs(this.vel.x) < 0.5) this.vel.x = 0;
+        if (Math.abs(this.vel.y) < 0.5) this.vel.y = 0;
 
         // Apply Position
         this.x += this.vel.x * dt;
@@ -95,15 +92,21 @@ export class Enemy {
         const dist = Math.sqrt(dx*dx + dy*dy);
         
         if (dist > 1) {
-            // Apply acceleration instead of direct position mod
-            // Desired velocity vector
             const dirX = dx / dist;
             const dirY = dy / dist;
             
-            // Add force (acceleration)
-            const accel = this.speed * 10; // Tune this factor
-            this.vel.x += dirX * accel * dt;
-            this.vel.y += dirY * accel * dt;
+            // Desired Velocity
+            const targetVx = dirX * this.maxSpeed;
+            const targetVy = dirY * this.maxSpeed;
+            
+            // Approach Target Velocity
+            this.vel.x = approach(this.vel.x, targetVx, this.accel * dt);
+            this.vel.y = approach(this.vel.y, targetVy, this.accel * dt);
+            
+            // Clamp Length
+            const clamped = clampLength(this.vel.x, this.vel.y, this.maxSpeed);
+            this.vel.x = clamped.x;
+            this.vel.y = clamped.y;
         }
     }
 
@@ -143,8 +146,11 @@ export class Glibber extends Enemy {
         this.name = "Glibber";
         this.color = '#00bcd4'; // Cyan
         this.hp = Math.floor(stats.hp * 0.8);
-        this.friction = 1.0; // Very slippery (Low friction)
-        this.speed = 40;     // Slower acceleration
+        
+        // Glibber: Slippery (Low drag, Low accel)
+        this.maxSpeed = 50;
+        this.accel = 100;
+        this.drag = 1.0; 
         
         this.state = 'WANDER';
         this.wanderTimer = 0;
@@ -164,10 +170,12 @@ export class Glibber extends Enemy {
                 this.wanderTimer = randomNumber(1, 3);
             }
             
-            // Apply drift force
-            const accel = this.speed * 2;
-            this.vel.x += this.wanderDir.x * accel * dt;
-            this.vel.y += this.wanderDir.y * accel * dt;
+            // Apply drift force via moveTowards logic (manual approach)
+            const targetVx = this.wanderDir.x * this.maxSpeed;
+            const targetVy = this.wanderDir.y * this.maxSpeed;
+            
+            this.vel.x = approach(this.vel.x, targetVx, this.accel * dt);
+            this.vel.y = approach(this.vel.y, targetVy, this.accel * dt);
 
             // Check aggro
             if (dist < 150) {
@@ -190,8 +198,11 @@ export class Spucker extends Enemy {
         super(stats, x, y, rank);
         this.name = "Spucker";
         this.color = '#4caf50'; // Green
-        this.friction = 10; // Stops quickly
-        this.speed = 0; // Stationary generally
+        
+        // Stationary
+        this.maxSpeed = 0;
+        this.accel = 0;
+        this.drag = 10; // Stops instantly
         
         this.state = 'IDLE';
         this.stateTimer = randomNumber(1, 2);
@@ -238,8 +249,11 @@ export class Bull extends Enemy {
         this.name = "Bull";
         this.color = '#795548'; // Brown
         this.hp = Math.floor(stats.hp * 1.5);
-        this.friction = 4;
-        this.speed = 50; 
+        
+        // Normal movement
+        this.maxSpeed = 60;
+        this.accel = 400;
+        this.drag = 4;
         
         this.state = 'WANDER';
         this.stateTimer = randomNumber(1, 3);
@@ -256,9 +270,10 @@ export class Bull extends Enemy {
         if (this.state === 'WANDER') {
             this.stateTimer -= dt;
             if (this.stateTimer <= 0) {
+                // Random wander impulse
                 const angle = Math.random() * Math.PI * 2;
-                this.vel.x += Math.cos(angle) * 50;
-                this.vel.y += Math.sin(angle) * 50;
+                this.vel.x += Math.cos(angle) * 100; // Small burst
+                this.vel.y += Math.sin(angle) * 100;
                 this.stateTimer = randomNumber(1, 2);
             }
 
@@ -287,22 +302,7 @@ export class Bull extends Enemy {
                 this.stateTimer = 2.0; // Max dash time
             }
         } else if (this.state === 'DASH') {
-            const dashSpeed = 400;
-            this.vel.x = this.chargeDir.x * dashSpeed;
-            this.vel.y = this.chargeDir.y * dashSpeed;
-            
-            // Check Wall Collision happens in Map, but we need to know if we hit a wall.
-            // Map.js resolves collision by moving us back.
-            // Simple check: If velocity is high but we didn't move much?
-            // Or better: Check collision ahead?
-            // For now, let's rely on velocity check. If we are dashing but speed drops to 0?
-            // Map doesn't set vel to 0 currently unless we added that logic?
-            // Wait, I implemented knockback velocity setting. Map collision pushes pos.
-            // If I hit a wall, pos stops. Velocity stays high.
-            // We need a way to detect "bonk".
-            // Heuristic: If we are in DASH state, and map.checkEntityCollision pushed us back significantly?
-            // Hard to detect from here.
-            
+            // Dash logic handled in updatePhysics override
             this.stateTimer -= dt;
             if (this.stateTimer <= 0) {
                 this.state = 'WANDER'; // Timeout
@@ -310,24 +310,35 @@ export class Bull extends Enemy {
         }
     }
     
-    // Custom collision handler called by Map if we want? Or just check if stuck?
-    // Let's assume Map stops us. If we are dashing and next frame position is same as prev frame?
-    updatePhysics(dt) {
-        const prevX = this.x;
-        const prevY = this.y;
-        super.updatePhysics(dt);
-        
+    updatePhysics(dt, map) {
         if (this.state === 'DASH') {
-            const movedDist = getDistance(prevX, prevY, this.x, this.y);
-            // Expected move: speed * dt. If moved significantly less, we hit something.
-            const expected = 400 * dt; 
-            if (movedDist < expected * 0.2) { // Hit wall
+            const dashSpeed = 450;
+            this.vel.x = this.chargeDir.x * dashSpeed;
+            this.vel.y = this.chargeDir.y * dashSpeed;
+
+            // Lookahead for BONK
+            const nextX = this.x + this.vel.x * dt;
+            const nextY = this.y + this.vel.y * dt;
+            
+            // Build simple AABB for next pos
+            const nextBounds = {
+                x: nextX, 
+                y: nextY, 
+                width: this.width, 
+                height: this.height 
+            };
+
+            if (map && map.rectCollidesWithSolids(nextBounds)) {
+                // BONK
                 this.state = 'STUNNED';
                 this.stateTimer = 2.0;
-                this.vel.x = -this.vel.x * 0.5; // Bounce back slightly
-                this.vel.y = -this.vel.y * 0.5;
+                this.vel.x = -this.vel.x * 0.3; // Slight bounce
+                this.vel.y = -this.vel.y * 0.3;
+                return; // Stop updatePhysics for this frame (avoid moving into wall)
             }
         }
+        
+        super.updatePhysics(dt, map);
     }
 }
 
@@ -338,9 +349,11 @@ export class Surrer extends Enemy {
         this.name = "Surrer";
         this.color = '#ff9800'; // Orange
         this.hp = Math.floor(stats.hp * 0.4);
-        this.friction = 2;
-        this.speed = 80; 
         this.ignoresWalls = true;
+        
+        this.maxSpeed = 80;
+        this.accel = 200;
+        this.drag = 2;
         
         this.time = Math.random() * 100;
     }
@@ -363,12 +376,14 @@ export class Surrer extends Enemy {
         
         const sine = Math.sin(this.time * 5) * 50; // Amplitude
         
-        // Target velocity
-        const moveSpeed = this.speed;
+        // Target velocity construction (manual to override base moveTowards)
+        const moveSpeed = this.maxSpeed;
         
-        // Apply forces
-        this.vel.x += (dirX * moveSpeed * 0.5 + perpX * sine) * dt;
-        this.vel.y += (dirY * moveSpeed * 0.5 + perpY * sine) * dt;
+        const targetVx = (dirX * moveSpeed * 0.8 + perpX * sine);
+        const targetVy = (dirY * moveSpeed * 0.8 + perpY * sine);
+        
+        this.vel.x = approach(this.vel.x, targetVx, this.accel * dt);
+        this.vel.y = approach(this.vel.y, targetVy, this.accel * dt);
     }
 }
 
@@ -378,8 +393,10 @@ export class Skelett extends Enemy {
         super(stats, x, y, rank);
         this.name = "Skelett";
         this.color = '#9e9e9e'; // Grey
-        this.friction = 5;
-        this.speed = 50;
+        
+        this.maxSpeed = 50;
+        this.accel = 300;
+        this.drag = 5;
         
         this.state = 'MAINTAIN_DIST';
         this.attackTimer = 2.0;
@@ -400,7 +417,7 @@ export class Skelett extends Enemy {
             this.moveTowards(player.x, player.y, dt);
         } else {
             // Strafe / Stand
-            // Maybe strafe randomly?
+            // Drag handles stopping if no moveTowards called
         }
 
         // Attack
@@ -412,9 +429,9 @@ export class Skelett extends Enemy {
     }
 
     predictiveShoot(player, map) {
-        // Simple prediction: Target = PlayerPos + PlayerVel * LeadTime
+        // Fix: Use player.vx/vy
         const leadTime = 0.5; // 0.5s prediction
-        const pVx = player.vx || 0; // Assuming player has velocity
+        const pVx = player.vx || 0; 
         const pVy = player.vy || 0;
         
         const tx = player.x + pVx * leadTime;
@@ -444,8 +461,9 @@ export class NestBlock extends Enemy {
         this.height = MINIBOSS_SIZE;
         this.color = '#8d6e63'; // Wood/Nest color
         
-        this.friction = 10;
-        this.speed = 10; // Slow move?
+        this.maxSpeed = 20;
+        this.accel = 50;
+        this.drag = 5;
         
         this.spawnTimer = 3.0;
         this.children = [];
@@ -481,8 +499,6 @@ export class NestBlock extends Enemy {
     
     spawnChild(map) {
         // Spawn Surrer
-        // Note: map.currentRoom.enemies needs to be updated.
-        // We can access map via update params.
         const stats = { hp: CONSTANTS.BASE_ENEMY_HP * 0.4, damage: CONSTANTS.BASE_ENEMY_DMG }; // Weak stats
         const child = new Surrer(stats, this.x, this.y, 'normal');
         map.currentRoom.enemies.push(child);
@@ -514,6 +530,10 @@ export class Ironhead extends Enemy {
         this.height = BOSS_SIZE;
         this.color = '#607d8b'; // Blue Grey
         
+        this.maxSpeed = 40;
+        this.accel = 200;
+        this.drag = 4;
+        
         this.phase = 1;
         this.actionTimer = 2.0;
         this.jumpTarget = { x: 0, y: 0 };
@@ -542,9 +562,7 @@ export class Ironhead extends Enemy {
                     this.state = 'AIR';
                     this.ignoresWalls = true; // Fly over walls
                     this.actionTimer = 1.0; // Air time
-                    // Tween position? Or set velocity high?
-                    // Let's teleport/lerp for boss jump simplicity or high speed
-                    this.vel.x = (this.jumpTarget.x - this.x); // Reach in 1s
+                    this.vel.x = (this.jumpTarget.x - this.x); 
                     this.vel.y = (this.jumpTarget.y - this.y); 
                 } else if (this.state === 'AIR') {
                     // Land

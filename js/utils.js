@@ -144,3 +144,26 @@ export function pushBack(target, source, force, bounds = null) {
         target.y += dirY * force;
     }
 }
+
+/**
+ * Bewegt einen Wert in Richtung Zielwert um maxDelta.
+ */
+export function approach(current, target, maxDelta) {
+    if (Math.abs(target - current) <= maxDelta) {
+        return target;
+    }
+    return current + Math.sign(target - current) * maxDelta;
+}
+
+/**
+ * Begrenzt die Länge eines Vektors auf maxLen.
+ * @returns {object} {x, y}
+ */
+export function clampLength(x, y, maxLen) {
+    const lenSq = x*x + y*y;
+    if (lenSq > maxLen * maxLen && lenSq > 0) {
+        const len = Math.sqrt(lenSq);
+        return { x: (x / len) * maxLen, y: (y / len) * maxLen };
+    }
+    return { x, y };
+}

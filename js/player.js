@@ -119,6 +119,9 @@ export class Player {
         this.dashSpeed = 480;
         this.dashBonusReady = false;
 
+        this.invulnTimer = 0;
+        this.hitstopTimer = 0;
+
         // Interaktion
         this.interactionTarget = null; // Enemy oder Resource
         this.interactionRange = this.range; // Pixel
@@ -420,6 +423,11 @@ export class Player {
     }
 
     update(dt, map) {
+        // I-Frame Cooldown
+        if (this.invulnTimer > 0) {
+            this.invulnTimer -= dt;
+        }
+
         // Cooldown reduzieren
         if (this.attackCooldownTimer > 0) {
             this.attackCooldownTimer -= dt;
@@ -722,6 +730,8 @@ export class Player {
     }
 
     takeDamage(amount, attacker = null) {
+        if (this.invulnTimer > 0) return;
+
         // Dodge Logic (Assassin / Hunter)
         if (this.dodgeChance > 0 && Math.random() < this.dodgeChance) {
             UI.log("Ausgewichen!", "#aaffaa");
@@ -735,6 +745,10 @@ export class Player {
             }
             return;
         }
+
+        // Apply Hitstop & I-Frames
+        this.invulnTimer = 0.6;
+        this.hitstopTimer = 0.05;
 
         // Barbarian Perseverance Logic
         if (this.activeSetBonuses.has('BARBARIAN_2')) {

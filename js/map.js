@@ -2,7 +2,7 @@
 import { createEnemy } from './enemy.js';
 import { Projectile } from './projectile.js';
 import { Item } from './item.js';
-import { randomNumber, checkCollision } from './utils.js';
+import { randomNumber, checkCollision, getDistance } from './utils.js';
 import { BalanceManager } from './balanceManager.js';
 import * as UI from './ui.js';
 import PATTERN_REGISTRY, { makeFallbackPattern, DOOR_MASK, maskFromNeighbors } from './roomPatterns/index.js';
@@ -506,6 +506,33 @@ export class GameMap {
                 this.checkEntityCollision(enemy); 
             }
         });
+
+        // Enemy Separation
+        const enemies = this.currentRoom.enemies;
+        for (let i = 0; i < enemies.length; i++) {
+            for (let j = i + 1; j < enemies.length; j++) {
+                const e1 = enemies[i];
+                const e2 = enemies[j];
+                const c1x = e1.x + e1.width/2;
+                const c1y = e1.y + e1.height/2;
+                const c2x = e2.x + e2.width/2;
+                const c2y = e2.y + e2.height/2;
+                
+                const dist = getDistance(c1x, c1y, c2x, c2y);
+                const minDist = (e1.width + e2.width) / 2 * 0.9;
+                
+                if (dist < minDist && dist > 0.1) {
+                    const push = 20 * dt; // Separation strength
+                    const dx = (c1x - c2x) / dist;
+                    const dy = (c1y - c2y) / dist;
+                    
+                    e1.x += dx * push;
+                    e1.y += dy * push;
+                    e2.x -= dx * push;
+                    e2.y -= dy * push;
+                }
+            }
+        }
 
         this.currentRoom.enemies = this.currentRoom.enemies.filter(e => {
             if (e.isDead()) {

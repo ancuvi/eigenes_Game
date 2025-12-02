@@ -596,6 +596,17 @@ class Game {
     }
 
     update(dt) {
+        // Hitstop Logic
+        if (this.player.hitstopTimer > 0) {
+            this.player.hitstopTimer -= dt;
+            if (this.player.hitstopTimer < 0) this.player.hitstopTimer = 0;
+            // Freeze Game Logic (Skip movement/AI)
+            // But still update UI below
+            UI.updatePlayerStats(this.player);
+            if (this.statsOverlay) this.statsOverlay.refresh();
+            return;
+        }
+
         if (this.gameState === 'START') {
             this.menuTime += dt;
             const worldW = VIRTUAL_WIDTH;
