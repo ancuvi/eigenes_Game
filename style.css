@@ -24,6 +24,25 @@ body {
     justify-content: center;
 }
 
+/* Transition Overlay */
+#transition-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #000;
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease-in-out;
+}
+
+#transition-overlay.active {
+    opacity: 1;
+    pointer-events: auto; /* Block interactions during transition */
+}
+
 /* Header Area */
 #ui-header {
     display: none; /* UI ausgeblendet */

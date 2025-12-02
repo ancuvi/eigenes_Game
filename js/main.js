@@ -86,6 +86,19 @@ class Game {
         window.addEventListener('resize', () => this.handleResize());
     }
 
+    transitionState(callback) {
+        const overlay = document.getElementById('transition-overlay');
+        overlay.classList.add('active');
+        
+        setTimeout(() => {
+            callback();
+            // Optional: Short delay before fading out to ensure DOM/Canvas updated
+            setTimeout(() => {
+                overlay.classList.remove('active');
+            }, 100);
+        }, 500);
+    }
+
     handleResize() {
         // Keep the logical canvas fixed at the virtual Isaac-style resolution.
         const screenW = window.innerWidth;
@@ -576,41 +589,43 @@ class Game {
     }
 
     startGame() {
-        console.log('Game Started!');
-        this.gameState = 'PLAYING';
-        
-        if (this.startScreen) this.startScreen.classList.add('hidden');
-        this.toggleUI(true);
-        
-        // Map Progression setzen
-        this.currentStage = this.selectedStage;
-        this.currentFloor = 1;
-        this.map.setStage(this.currentStage, this.currentFloor);
-        this.map.grid = {};
-        this.map.dungeonLayout = {};
-        this.map.currentRoom = null;
-        this.map.currentGridX = 0;
-        this.map.currentGridY = 0;
-
-        if (!this.map.currentRoom) {
-            this.map.loadRoom(0, 0);
-        }
-
-        // Spawn Player correctly in Room Center
-        if (this.map.currentRoom) {
-            const tiles = this.map.currentRoom.tiles;
-            // Center spawn using Virtual Resolution
-            this.player.x = (VIRTUAL_WIDTH - this.player.width) / 2;
-            this.player.y = (VIRTUAL_HEIGHT - this.player.height) / 2;
+        this.transitionState(() => {
+            console.log('Game Started!');
+            this.gameState = 'PLAYING';
             
-            // Force Camera Update immediately
-            if (this.camera) {
-                this.camera.update(this.player, this.map.currentRoom.width, this.map.currentRoom.height);
+            if (this.startScreen) this.startScreen.classList.add('hidden');
+            this.toggleUI(true);
+            
+            // Map Progression setzen
+            this.currentStage = this.selectedStage;
+            this.currentFloor = 1;
+            this.map.setStage(this.currentStage, this.currentFloor);
+            this.map.grid = {};
+            this.map.dungeonLayout = {};
+            this.map.currentRoom = null;
+            this.map.currentGridX = 0;
+            this.map.currentGridY = 0;
+
+            if (!this.map.currentRoom) {
+                this.map.loadRoom(0, 0);
             }
-        }
-        
-        if (this.mapOverlay) this.mapOverlay.draw();
-        UI.log(`Stage ${this.currentStage} - Floor ${this.currentFloor}`, '#00ff00');
+
+            // Spawn Player correctly in Room Center
+            if (this.map.currentRoom) {
+                const tiles = this.map.currentRoom.tiles;
+                // Center spawn using Virtual Resolution
+                this.player.x = (VIRTUAL_WIDTH - this.player.width) / 2;
+                this.player.y = (VIRTUAL_HEIGHT - this.player.height) / 2;
+                
+                // Force Camera Update immediately
+                if (this.camera) {
+                    this.camera.update(this.player, this.map.currentRoom.width, this.map.currentRoom.height);
+                }
+            }
+            
+            if (this.mapOverlay) this.mapOverlay.draw();
+            UI.log(`Stage ${this.currentStage} - Floor ${this.currentFloor}`, '#00ff00');
+        });
     }
 
     centerPlayer() {
@@ -640,10 +655,12 @@ class Game {
             this.saveData = save;
         }
         
-        this.gameState = 'START';
-        this.toggleUI(false);
-        if (this.startScreen) this.startScreen.classList.remove('hidden');
-        UI.log(`Stage ${stage} abgeschlossen!`, '#ffd700');
+        this.transitionState(() => {
+            this.gameState = 'START';
+            this.toggleUI(false);
+            if (this.startScreen) this.startScreen.classList.remove('hidden');
+            UI.log(`Stage ${stage} abgeschlossen!`, '#ffd700');
+        });
     }
 
     gameLoop(timestamp) {
@@ -712,26 +729,28 @@ class Game {
     handleGameOver() {
         UI.log('DU BIST GESTORBEN! Zurück zum Start...', '#ff0000');
         
-        this.isAutoMode = false;
-        this.timeScale = 1;
-        this.updateAutoButton();
+        this.transitionState(() => {
+            this.isAutoMode = false;
+            this.timeScale = 1;
+            this.updateAutoButton();
 
-        this.player.reset();
-        
-        this.currentStage = 1;
-        this.currentFloor = 1;
-        
-        this.map.grid = {}; 
-        this.map.dungeonLayout = {}; 
-        this.map.currentGridX = 0;
-        this.map.currentGridY = 0;
-        this.map.currentRoom = null; 
+            this.player.reset();
+            
+            this.currentStage = 1;
+            this.currentFloor = 1;
+            
+            this.map.grid = {}; 
+            this.map.dungeonLayout = {}; 
+            this.map.currentGridX = 0;
+            this.map.currentGridY = 0;
+            this.map.currentRoom = null; 
 
-        this.gameState = 'START';
-        this.toggleUI(false);
-        if (this.startScreen) this.startScreen.classList.remove('hidden');
-        
-        this.centerPlayer(); 
+            this.gameState = 'START';
+            this.toggleUI(false);
+            if (this.startScreen) this.startScreen.classList.remove('hidden');
+            
+            this.centerPlayer(); 
+        });
     }
 
     checkRoomClear() {
