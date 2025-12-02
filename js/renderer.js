@@ -22,6 +22,8 @@ export class Renderer {
         this.map = map;
         this.inputHandler = inputHandler;
         this.camera = camera;
+        
+        this.joystickOpacity = 0;
     }
 
     draw() {
@@ -81,41 +83,55 @@ export class Renderer {
         // this.drawBars(this.player, true, camX, camY); // HP + EXP (Deaktiviert auf Wunsch)
         
         // 5. Joystick (Visual Feedback)
-        // Note: Joystick coords from Input are now scaled to Virtual space in updateDrag?
-        // Actually InputHandler logic needs to be checked. 
-        // If we draw joystick on Buffer, coords must be in Virtual Space.
+        // Handle opacity fade
         if (this.inputHandler && this.inputHandler.isDragging) {
+            this.joystickOpacity = 1.0;
+        } else {
+            this.joystickOpacity -= 0.05; // Fade out speed
+            if (this.joystickOpacity < 0) this.joystickOpacity = 0;
+        }
+
+        if (this.joystickOpacity > 0 && this.inputHandler) {
             const startX = this.inputHandler.startX;
             const startY = this.inputHandler.startY;
             const currX = this.inputHandler.currentX;
             const currY = this.inputHandler.currentY;
             
-            // Outer Circle (Static)
+            const outerRadius = 25;
+            const innerRadius = 10;
+            
+            ctx.save();
+            ctx.globalAlpha = this.joystickOpacity;
+            
+            // Outer Circle (Base)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1.5;
             ctx.beginPath();
-            ctx.arc(startX, startY, 40, 0, Math.PI * 2);
+            ctx.arc(startX, startY, outerRadius, 0, Math.PI * 2);
+            ctx.fill();
             ctx.stroke();
             
-            // Calculate Knob Position (Clamped)
+            // Calculate Knob Position
             const dx = currX - startX;
             const dy = currY - startY;
             const dist = Math.sqrt(dx*dx + dy*dy);
-            const maxDist = 40;
             
             let knobX = currX;
             let knobY = currY;
             
-            if (dist > maxDist) {
-                knobX = startX + (dx / dist) * maxDist;
-                knobY = startY + (dy / dist) * maxDist;
+            if (dist > outerRadius) {
+                knobX = startX + (dx / dist) * outerRadius;
+                knobY = startY + (dy / dist) * outerRadius;
             }
             
             // Inner Circle (Knob)
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
             ctx.beginPath();
-            ctx.arc(knobX, knobY, 15, 0, Math.PI * 2);
+            ctx.arc(knobX, knobY, innerRadius, 0, Math.PI * 2);
             ctx.fill();
+            
+            ctx.restore();
         }
 
         // Final Blit to Screen Canvas

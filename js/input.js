@@ -16,7 +16,8 @@ export class InputHandler {
         this.startY = 0;
         this.currentX = 0;
         this.currentY = 0;
-        this.dragThreshold = 10; // Pixel, ab denen es als Drag gilt
+        this.dragThreshold = 5; // Reduziert für schnelleres Ansprechen
+        this.maxRadius = 25;    // Max Radius für den Joystick (kleiner)
 
         // Event Listener hinzufügen
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
@@ -79,18 +80,33 @@ export class InputHandler {
         this.currentX = x;
         this.currentY = y;
         
-        const dx = this.currentX - this.startX;
-        const dy = this.currentY - this.startY;
+        let dx = this.currentX - this.startX;
+        let dy = this.currentY - this.startY;
+        let len = Math.sqrt(dx*dx + dy*dy);
         
-        // Vektor normalisieren
-        const len = Math.sqrt(dx*dx + dy*dy);
+        // Dynamic Joystick Logic: Base follows finger
+        if (len > this.maxRadius) {
+            const dirX = dx / len;
+            const dirY = dy / len;
+            
+            // Move start position so that distance stays at maxRadius
+            this.startX = this.currentX - dirX * this.maxRadius;
+            this.startY = this.currentY - dirY * this.maxRadius;
+            
+            // Recalculate delta (will be exactly maxRadius * dir)
+            dx = this.currentX - this.startX;
+            dy = this.currentY - this.startY;
+            len = this.maxRadius;
+        }
         
         if (len > this.dragThreshold) {
-            // Nur bewegen wenn wir über Threshold sind
+            // Normalize movement vector
             this.player.setMovement(dx/len, dy/len);
-            
-            // Optional: Visueller Joystick hier zeichnen? Besser im Renderer.
-            // Wir könnten die Joystick-Daten im InputHandler speichern und Renderer liest sie.
+        } else {
+            // Stop if within deadzone/threshold (optional, or keep moving slightly?)
+            // Better to allow micro-movement if user intends, but usually threshold is for click detection.
+            // If dragging started, we might want continuous movement.
+            // But if we are in dynamic mode, we are usually moving.
         }
     }
 
