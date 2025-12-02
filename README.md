@@ -1,4 +1,4 @@
-# Ascension of the Slime (Canvas Prototype)
+# Pixel Purgatory (Canvas Prototype)
 
 Ein kleines Canvas-Click-Movement-RPG mit automatisch spawnenden Gegnern, Auto-Kampf und Weltkarten-Overlay.
 
