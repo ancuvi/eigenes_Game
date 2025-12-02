@@ -43,6 +43,37 @@ body {
     pointer-events: auto; /* Block interactions during transition */
 }
 
+/* Intro & Loading Screens */
+.fullscreen-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: #000;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 150;
+}
+
+.fullscreen-overlay.hidden {
+    display: none;
+}
+
+#intro-screen {
+    text-align: center;
+    font-size: 1.5rem;
+    line-height: 1.6;
+    font-family: sans-serif;
+}
+
+#loading-screen {
+    background-image: url('assets/loading_screen/loading_screen.png');
+    background-size: contain; 
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: #000; 
+}
+
 /* Header Area */
 #ui-header {
     display: none; /* UI ausgeblendet */

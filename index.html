@@ -13,9 +13,20 @@
 </head>
 <body>
     <div id="transition-overlay"></div>
+    
+    <!-- New Screens -->
+    <div id="intro-screen" class="fullscreen-overlay">
+        <div class="intro-text">
+            Bitte Gerät ins Querformat drehen.<br>
+            Please rotate your device.
+        </div>
+    </div>
+    
+    <div id="loading-screen" class="fullscreen-overlay hidden"></div>
+
     <div id="game-container">
         <!-- Start Screen -->
-        <div id="start-screen">
+        <div id="start-screen" class="hidden">
             <h1 class="game-title">Ascension of the Slime</h1>
             <div class="menu-container">
                 <button id="inventory-btn" class="menu-btn secondary">Inventory & Merge</button>

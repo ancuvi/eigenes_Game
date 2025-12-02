@@ -156,7 +156,31 @@ class Game {
         this.loadPlayerEquipment();
 
         this.toggleUI(false);
-        if (this.startScreen) this.startScreen.classList.remove('hidden');
+        
+        // Intro Sequence
+        const introScreen = document.getElementById('intro-screen');
+        const loadingScreen = document.getElementById('loading-screen');
+        
+        if (this.startScreen) this.startScreen.classList.add('hidden');
+        if (loadingScreen) loadingScreen.classList.add('hidden');
+        if (introScreen) introScreen.classList.remove('hidden');
+
+        // 1. Wait 5s on Intro
+        setTimeout(() => {
+            // 2. Transition to Loading
+            this.transitionState(() => {
+                if (introScreen) introScreen.classList.add('hidden');
+                if (loadingScreen) loadingScreen.classList.remove('hidden');
+                
+                // 3. Wait 3s on Loading -> Transition to Start
+                setTimeout(() => {
+                    this.transitionState(() => {
+                        if (loadingScreen) loadingScreen.classList.add('hidden');
+                        if (this.startScreen) this.startScreen.classList.remove('hidden');
+                    });
+                }, 3000);
+            });
+        }, 5000);
 
         this.isRunning = true;
         this.lastTime = performance.now();
