@@ -27,12 +27,18 @@
     <div id="game-container">
         <!-- Start Screen -->
         <div id="start-screen" class="hidden">
-            <h1 class="game-title">Pixel Purgatory</h1>
-            <div class="menu-container">
-                <button id="inventory-btn" class="menu-btn secondary">Inventory & Merge</button>
-                <button id="stage-select-btn" class="menu-btn secondary">Select Stage</button>
-                <button id="start-upgrade-btn" class="menu-btn secondary">Upgrades</button>
-                <button id="start-btn" class="menu-btn primary">START GAME</button>
+            <div class="start-card">
+                <div class="title-block">
+                    <p class="eyebrow">Top-Down Roguelite</p>
+                    <h1 class="game-title">Pixel Purgatory</h1>
+                    <p class="tagline">Melt demons, collect loot, keep the run alive.</p>
+                </div>
+                <div class="menu-grid">
+                    <button id="inventory-btn" class="menu-btn secondary">Inventory &amp; Merge</button>
+                    <button id="stage-select-btn" class="menu-btn secondary">Select Stage</button>
+                    <button id="start-upgrade-btn" class="menu-btn secondary">Upgrades</button>
+                    <button id="start-btn" class="menu-btn primary">Start Game</button>
+                </div>
             </div>
         </div>
 
@@ -69,17 +75,28 @@
                     <h2>Latest Updates</h2>
                     <button class="close-modal" data-target="patch-notes-modal">×</button>
                 </div>
-                <div class="modal-body" style="color: #ccc; font-family: monospace; line-height: 1.6; overflow-y: auto; flex: 1; padding: 10px;">
-                    <p><strong>Moin! Hier ist das neuste Update (02.12.2025):</strong></p>
-                    <ul style="padding-left: 20px; list-style-type: disc;">
-                        <li style="margin-bottom: 8px;">🤖 <strong>Neue Gegner-KI:</strong> Isaac-Style Physics! Kein Teleport mehr, sondern echter Rückstoß.</li>
-                        <li style="margin-bottom: 8px;">👾 <strong>Gegner-Typen:</strong> Glibber (rutscht), Bull (stürmt), Spucker (schießt) & co.</li>
-                        <li style="margin-bottom: 8px;">✨ <strong>Smooth Transitions:</strong> Butterweiche Übergänge zwischen Screens.</li>
-                        <li style="margin-bottom: 8px;">📱 <strong>Intro & Loading:</strong> Neuer Start-Ablauf.</li>
-                        <li style="margin-bottom: 8px;">ℹ️ <strong>Stage Info:</strong> Klicke auf das "i" bei der Stage-Wahl für Drop-Chancen.</li>
-                    </ul>
-                    <p style="margin-top: 20px;">Viel Spaß beim Zocken!</p>
-                    <button class="menu-btn primary close-modal" data-target="patch-notes-modal" style="margin-top: 20px; font-size: 1rem; padding: 10px;">Alles klar!</button>
+                <div class="patch-notes-body">
+                    <div class="patch-entry">
+                        <div class="patch-date">03.12.2025</div>
+                        <ul class="patch-list">
+                            <li>🧩 <strong>Sprites auf 64×64 vereinheitlicht:</strong> klarere Kollisionen & knackigere Pixelkanten.</li>
+                            <li>🎛️ <strong>Startscreen neu aufgebaut:</strong> Button-Grid, Tagline und bessere Lesbarkeit auf allen Geräten.</li>
+                            <li>🧾 <strong>Patch-Notizen mit Datum:</strong> Chronologisch scrollen und ältere Updates nachlesen.</li>
+                        </ul>
+                    </div>
+
+                    <div class="patch-entry">
+                        <div class="patch-date">02.12.2025</div>
+                        <ul class="patch-list">
+                            <li>🤖 <strong>Neue Gegner-KI:</strong> Isaac-Style Physics! Kein Teleport mehr, sondern echter Rückstoß.</li>
+                            <li>👾 <strong>Gegner-Typen:</strong> Glibber (rutscht), Bull (stürmt), Spucker (schießt) & co.</li>
+                            <li>✨ <strong>Smooth Transitions:</strong> Butterweiche Übergänge zwischen Screens.</li>
+                            <li>📱 <strong>Intro & Loading:</strong> Neuer Start-Ablauf.</li>
+                            <li>ℹ️ <strong>Stage Info:</strong> Klicke auf das "i" bei der Stage-Wahl für Drop-Chancen.</li>
+                        </ul>
+                    </div>
+
+                    <button class="menu-btn primary close-modal" data-target="patch-notes-modal">Alles klar!</button>
                 </div>
             </div>
         </div>
