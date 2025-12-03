@@ -281,7 +281,7 @@ export class GameMap {
 
             if (parsed.items) {
                 parsed.items.forEach(i => {
-                    const it = new Item(i.x, i.y, i.type, 16, 16); // Match TILE_SIZE
+                    const it = new Item(i.x, i.y, i.type, TILE_SIZE, TILE_SIZE); 
                     items.push(it);
                 });
             }
@@ -522,7 +522,7 @@ export class GameMap {
                 const minDist = (e1.width + e2.width) / 2 * 0.9;
                 
                 if (dist < minDist && dist > 0.1) {
-                    const push = 20 * dt; // Separation strength
+                    const push = 80 * dt; // Separation strength (scaled by 4)
                     const dx = (c1x - c2x) / dist;
                     const dy = (c1y - c2y) / dist;
                     
@@ -592,7 +592,7 @@ export class GameMap {
     }
 
     spawnHoleToNextFloor(x, y) {
-        const size = 48;
+        const size = 3 * TILE_SIZE; // Scaled hole (was 48 = 3 * 16)
         const item = new Item(x - size/2, y - size/2, 'next_floor', size, size);
         if (this.currentRoom.items) this.currentRoom.items.push(item);
         UI.log('Ein Loch zum nächsten Floor erscheint!', '#00bfff');

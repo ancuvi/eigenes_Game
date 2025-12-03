@@ -1,34 +1,57 @@
-export const TILE_SIZE = 16;
-export const RENDER_SCALE = 1; // Skaliert 16px Tiles auf VIRTUAL Pixels (1:1 wenn VIRTUAL_WIDTH klein ist)
+// HD World Setup
+export const TILE_WORLD = 64; 
+export const TILE_SIZE = TILE_WORLD; // Alias for compatibility, eventually replace all
 
 export const ROOM_TILES_W = 15;
 export const ROOM_TILES_H = 9;
 
-export const VIRTUAL_WIDTH = ROOM_TILES_W * TILE_SIZE; // 240
-export const VIRTUAL_HEIGHT = ROOM_TILES_H * TILE_SIZE; // 144
+export const ROOM_WORLD_W = ROOM_TILES_W * TILE_WORLD;
+export const ROOM_WORLD_H = ROOM_TILES_H * TILE_WORLD;
+
+export const COORD_SCALE = 1; // Logic == World now
+
+export const RENDER_SCALE = 1; // Legacy
+
+export const VIRTUAL_WIDTH = ROOM_WORLD_W; 
+export const VIRTUAL_HEIGHT = ROOM_WORLD_H; 
 
 export let ACTUAL_SCALE = 1; 
 export function setActualScale(s) { ACTUAL_SCALE = s; }
 
 // Entity Sizes (in World Pixels)
-export const PLAYER_SIZE = 16;
-export const PLAYER_SPRITE_SIZE = 16;
-export const PLAYER_HITBOX_SIZE = 12;
-export const PLAYER_HITBOX_OFFSET = (PLAYER_SPRITE_SIZE - PLAYER_HITBOX_SIZE) / 2;
-export const PLAYER_HEAD_OFFSET = -14; // Verschiebung des Kopfes nach oben (negativ) oder unten (positiv)
+export const HITBOX_SCALE = 0.65;
 
-export const ENEMY_SIZE = 16;
-export const MINIBOSS_SIZE = 24;
-export const BOSS_SIZE = 40;
+export const PLAYER_SPRITE_SIZE = TILE_WORLD; // 64
+export const PLAYER_HITBOX_SIZE = PLAYER_SPRITE_SIZE * HITBOX_SCALE; // ~41.6
+export const PLAYER_HITBOX_OFFSET = (PLAYER_SPRITE_SIZE - PLAYER_HITBOX_SIZE) / 2;
+export const PLAYER_SIZE = PLAYER_SPRITE_SIZE; // Alias for legacy code
+export const PLAYER_HEAD_OFFSET = -TILE_WORLD * 0.8; 
+
+export const ENEMY_SPRITE_SIZE = TILE_WORLD; // 64
+export const ENEMY_HITBOX_SIZE = ENEMY_SPRITE_SIZE * HITBOX_SCALE;
+export const ENEMY_HITBOX_OFFSET = (ENEMY_SPRITE_SIZE - ENEMY_HITBOX_SIZE) / 2;
+export const ENEMY_SIZE = ENEMY_SPRITE_SIZE; // Alias
+
+export const MINIBOSS_SPRITE_SIZE = TILE_WORLD * 1.5; // 96
+export const MINIBOSS_HITBOX_SIZE = MINIBOSS_SPRITE_SIZE * HITBOX_SCALE;
+export const MINIBOSS_HITBOX_OFFSET = (MINIBOSS_SPRITE_SIZE - MINIBOSS_HITBOX_SIZE) / 2;
+export const MINIBOSS_SIZE = MINIBOSS_SPRITE_SIZE; // Alias
+
+export const BOSS_SPRITE_SIZE = TILE_WORLD * 2.5; // 160
+export const BOSS_HITBOX_SIZE = BOSS_SPRITE_SIZE * HITBOX_SCALE;
+export const BOSS_HITBOX_OFFSET = (BOSS_SPRITE_SIZE - BOSS_HITBOX_SIZE) / 2;
+export const BOSS_SIZE = BOSS_SPRITE_SIZE; // Alias
+
+export const PROJECTILE_RADIUS = TILE_WORLD * 0.25; // 16
 
 export const DEBUG_HITBOX = false;
 
 // Movement Physics
-export const PLAYER_MAX_SPEED = 100;     // Wie schnell der Charakter maximal läuft
-export const PLAYER_ACCEL = 400;       // Wie schnell er auf Höchstgeschwindigkeit kommt (Beschleunigung)
-export const PLAYER_FRICTION = 400;    // Wie schnell er bremst, wenn man loslässt (Reibung)
-export const PLAYER_INPUT_DEADZONE = 0.15; // Ignoriert leichte Stick-Bewegungen (Deadzone)
-export const PLAYER_STOP_EPS = 2;       // Ab welcher Geschwindigkeit er sofort stoppt (verhindert Rutschen)
+export const PLAYER_MAX_SPEED = 400;     // 100 * 4
+export const PLAYER_ACCEL = 1600;       // 400 * 4
+export const PLAYER_FRICTION = 1600;    // 400 * 4
+export const PLAYER_INPUT_DEADZONE = 0.15;
+export const PLAYER_STOP_EPS = 8;       // 2 * 4
 
 // Tile-IDs (Autotile/Isaac Setup)
 // Basis

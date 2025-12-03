@@ -1,68 +1,73 @@
 // Renderer: Zeichnet alles auf das Canvas
-import { TILE, TILE_SIZE, RENDER_SCALE, WALL_LIKE_TILES, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, DEBUG_HITBOX, PLAYER_HEAD_OFFSET } from './constants.js';
+import { TILE, TILE_WORLD, RENDER_SCALE, WALL_LIKE_TILES, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, DEBUG_HITBOX, PLAYER_HEAD_OFFSET, ACTUAL_SCALE, COORD_SCALE, PROJECTILE_RADIUS } from './constants.js';
 import { getWallNeighborMask } from './utils.js';
 
 export class Renderer {
     constructor(canvas, player, map, inputHandler, camera) {
         this.canvas = canvas;
-        // Ensure the onscreen canvas matches the fixed virtual resolution.
-        this.canvas.width = VIRTUAL_WIDTH;
-        this.canvas.height = VIRTUAL_HEIGHT;
         this.ctx = canvas.getContext('2d');
-        if (this.ctx) this.ctx.imageSmoothingEnabled = false;
         
-        // Offscreen Buffer
-        this.buffer = document.createElement('canvas');
-        this.buffer.width = VIRTUAL_WIDTH;
-        this.buffer.height = VIRTUAL_HEIGHT;
-        this.bufferCtx = this.buffer.getContext('2d');
-        if (this.bufferCtx) this.bufferCtx.imageSmoothingEnabled = false;
-
         this.player = player;
         this.map = map;
         this.inputHandler = inputHandler;
         this.camera = camera;
         
         this.joystickOpacity = 0;
+
+        // Render State
+        this.worldScale = 1;
+        this.offsetX = 0;
+        this.offsetY = 0;
     }
 
-    draw() {
-        if (!this.ctx) return;
-        const ctx = this.bufferCtx;
+    updateScale(scale, ox, oy) {
+        this.worldScale = scale;
+        this.offsetX = ox;
+        this.offsetY = oy;
+    }
 
-        // 1. Clear Buffer
-        ctx.clearRect(0, 0, this.buffer.width, this.buffer.height);
+    drawWorld() {
+        if (!this.ctx) return;
+        const ctx = this.ctx;
+        const dpr = window.devicePixelRatio || 1;
+
+        // Apply World Transform (Scale + Letterbox Offset)
+        ctx.setTransform(dpr * this.worldScale, 0, 0, dpr * this.worldScale, this.offsetX * dpr, this.offsetY * dpr);
+
+        // 1. Clear World Area (We can clear everything because we redraw background)
+        // BUT to be safe and support letterboxing (black bars), we should only clear/draw inside the world area?
+        // Actually, main loop clears everything? No, I need to clear here.
+        // If I clear with transformed coords, I clear the world box.
+        // To clear black bars, I should reset transform first.
         
-        // Manual Scaling Logic (RENDER_SCALE is now 1 for Virtual)
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // Physical Pixels
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.restore(); // Back to World Transform
+
         const camX = this.camera ? this.camera.x : 0;
         const camY = this.camera ? this.camera.y : 0;
 
         // 2. Background
-        const roomW = this.map.currentRoom ? this.map.currentRoom.width : (this.buffer.width / RENDER_SCALE);
-        const roomH = this.map.currentRoom ? this.map.currentRoom.height : (this.buffer.height / RENDER_SCALE);
+        const roomW = this.map.currentRoom ? this.map.currentRoom.width : 500;
+        const roomH = this.map.currentRoom ? this.map.currentRoom.height : 500;
 
-        // Background covers the whole room area
-        const bgX = (0 - camX) * RENDER_SCALE;
-        const bgY = (0 - camY) * RENDER_SCALE;
-        const bgW = roomW * RENDER_SCALE;
-        const bgH = roomH * RENDER_SCALE;
+        // Scale Logic Coordinates to World Pixels
+        const cs = COORD_SCALE; 
+
+        const bgX = (0 - camX) * cs;
+        const bgY = (0 - camY) * cs;
+        const bgW = roomW * cs;
+        const bgH = roomH * cs;
 
         ctx.fillStyle = '#2a2a2a'; 
         ctx.fillRect(bgX, bgY, bgW, bgH);
 
-        // Grid-Hilfslinien für Tiefe
+        // Draw World Elements
         this.drawGrid(roomW, roomH, camX, camY);
-
-        // Wände und Türen zeichnen (Dungeon-Struktur)
         this.drawWallsAndDoors(camX, camY);
-        
-        // Hindernisse zeichnen
         this.drawObstacles(camX, camY);
-        
-        // Items zeichnen
         this.drawItems(camX, camY);
-
-        // Projektile zeichnen
         this.drawProjectiles(camX, camY);
 
         // 3. Enemies
@@ -70,34 +75,56 @@ export class Renderer {
         if (enemies) {
             enemies.forEach(enemy => {
                 this.drawEntity(enemy, enemy.color || '#e53935', camX, camY);
-                this.drawHealthBar(enemy, camX, camY);
-                this.drawLabel(enemy, `${enemy.name} (Lvl ${enemy.level})`, camX, camY);
-                if (enemy.telegraphTimer > 0) {
-                    this.drawTelegraph(enemy, camX, camY);
-                }
             });
         }
 
         // 4. Player
-        this.drawEntity(this.player, '#43a047', camX, camY); // Kräftiges Grün
-        // this.drawBars(this.player, true, camX, camY); // HP + EXP (Deaktiviert auf Wunsch)
+        this.drawEntity(this.player, '#43a047', camX, camY); 
+    }
+
+    drawUI() {
+        if (!this.ctx) return;
+        const ctx = this.ctx;
+        const dpr = window.devicePixelRatio || 1;
+        const camX = this.camera ? this.camera.x : 0;
+        const camY = this.camera ? this.camera.y : 0;
+
+        // 1. World-Attached UI (Bars, Labels, Telegraphs)
+        // Uses World Transform
+        ctx.setTransform(dpr * this.worldScale, 0, 0, dpr * this.worldScale, this.offsetX * dpr, this.offsetY * dpr);
         
-        // 5. Joystick (Visual Feedback)
-        // Handle opacity fade
+        const enemies = this.map.getEnemies();
+        if (enemies) {
+            enemies.forEach(enemy => {
+                this.drawHealthBar(enemy, camX, camY, ctx);
+                this.drawLabel(enemy, `${enemy.name} (Lvl ${enemy.level})`, camX, camY, ctx);
+                if (enemy.telegraphTimer > 0) {
+                    this.drawTelegraph(enemy, camX, camY, ctx);
+                }
+            });
+        }
+
+        // 2. Screen-Attached UI (Joystick, HUD)
+        // Uses Screen Transform (DPR)
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // Joystick (Opacity Logic)
         if (this.inputHandler && this.inputHandler.isDragging) {
             this.joystickOpacity = 1.0;
         } else {
-            this.joystickOpacity -= 0.05; // Fade out speed
+            this.joystickOpacity -= 0.05; 
             if (this.joystickOpacity < 0) this.joystickOpacity = 0;
         }
 
         if (this.joystickOpacity > 0 && this.inputHandler) {
+            // InputHandler coords are CSS Pixels (1:1 with Screen Transform)
+            // No scaling needed if ACTUAL_SCALE is 1
             const startX = this.inputHandler.startX;
             const startY = this.inputHandler.startY;
             const currX = this.inputHandler.currentX;
             const currY = this.inputHandler.currentY;
             
-            const outerRadius = 25;
+            const outerRadius = 25; 
             const innerRadius = 10;
             
             ctx.save();
@@ -133,34 +160,30 @@ export class Renderer {
             
             ctx.restore();
         }
-
-        // Final Blit to Screen Canvas
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.drawImage(this.buffer, 0, 0);
     }
 
     drawGrid(w, h, camX, camY) {
-        const ctx = this.bufferCtx;
+        const ctx = this.ctx;
         ctx.strokeStyle = '#333';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 4; // 1 * 4
 
         ctx.beginPath();
-        const step = 50; // World Units Step
+        const step = 200; // 50 * 4
         
         // Vertikale Linien
         for (let x = 0; x <= w; x += step) {
-            const sx = (x - camX) * RENDER_SCALE;
-            const syStart = (0 - camY) * RENDER_SCALE;
-            const syEnd = (h - camY) * RENDER_SCALE;
+            const sx = (x - camX) * COORD_SCALE;
+            const syStart = (0 - camY) * COORD_SCALE;
+            const syEnd = (h - camY) * COORD_SCALE;
             ctx.moveTo(sx, syStart);
             ctx.lineTo(sx, syEnd);
         }
         
         // Horizontale Linien
         for (let y = 0; y <= h; y += step) {
-            const sy = (y - camY) * RENDER_SCALE;
-            const sxStart = (0 - camX) * RENDER_SCALE;
-            const sxEnd = (w - camX) * RENDER_SCALE;
+            const sy = (y - camY) * COORD_SCALE;
+            const sxStart = (0 - camX) * COORD_SCALE;
+            const sxEnd = (w - camX) * COORD_SCALE;
             ctx.moveTo(sxStart, sy);
             ctx.lineTo(sxEnd, sy);
         }
@@ -171,14 +194,14 @@ export class Renderer {
         const obstacles = this.map.getObstacles();
         if (!obstacles) return;
         
-        const ctx = this.bufferCtx;
-        ctx.lineWidth = 2 * RENDER_SCALE;
+        const ctx = this.ctx;
+        ctx.lineWidth = 8 * COORD_SCALE; // 2 * 4
         
         obstacles.forEach(obs => {
-            const sx = (Math.floor(obs.x) - camX) * RENDER_SCALE;
-            const sy = (Math.floor(obs.y) - camY) * RENDER_SCALE;
-            const sw = Math.floor(obs.width) * RENDER_SCALE;
-            const sh = Math.floor(obs.height) * RENDER_SCALE;
+            const sx = (Math.floor(obs.x) - camX) * COORD_SCALE;
+            const sy = (Math.floor(obs.y) - camY) * COORD_SCALE;
+            const sw = Math.floor(obs.width) * COORD_SCALE;
+            const sh = Math.floor(obs.height) * COORD_SCALE;
             
             if (obs.type === 'void') {
                 // Abgrund / Void
@@ -195,7 +218,7 @@ export class Renderer {
                 ctx.strokeRect(sx, sy, sw, sh);
                 
                 ctx.fillStyle = 'rgba(255,255,255,0.1)';
-                ctx.fillRect(sx, sy, sw, 5 * RENDER_SCALE);
+                ctx.fillRect(sx, sy, sw, 20 * COORD_SCALE); // 5 * 4
             }
         });
     }
@@ -204,11 +227,11 @@ export class Renderer {
         const projectiles = this.map.getProjectiles();
         if (!projectiles) return;
 
-        const ctx = this.bufferCtx;
+        const ctx = this.ctx;
         projectiles.forEach(p => {
-            const sx = (p.x - camX) * RENDER_SCALE;
-            const sy = (p.y - camY) * RENDER_SCALE;
-            const sRadius = 5 * RENDER_SCALE;
+            const sx = (p.x - camX) * COORD_SCALE;
+            const sy = (p.y - camY) * COORD_SCALE;
+            const sRadius = PROJECTILE_RADIUS * COORD_SCALE; 
 
             ctx.beginPath();
             ctx.arc(sx, sy, sRadius, 0, Math.PI * 2);
@@ -219,7 +242,7 @@ export class Renderer {
             }
             ctx.fill();
             ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 1 * RENDER_SCALE;
+            ctx.lineWidth = 4 * COORD_SCALE; // 1 * 4
             ctx.stroke();
         });
     }
@@ -228,54 +251,54 @@ export class Renderer {
         const items = this.map.getItems();
         if (!items) return;
 
-        const ctx = this.bufferCtx;
+        const ctx = this.ctx;
         items.forEach(item => {
-            const sx = (item.x - camX) * RENDER_SCALE;
-            const sy = (item.y - camY) * RENDER_SCALE;
-            const sw = item.width * RENDER_SCALE;
-            const sh = item.height * RENDER_SCALE;
+            const sx = (item.x - camX) * COORD_SCALE;
+            const sy = (item.y - camY) * COORD_SCALE;
+            const sw = item.width * COORD_SCALE;
+            const sh = item.height * COORD_SCALE;
             
             // Glow Effekt
             const time = Date.now() / 200;
-            ctx.shadowBlur = (10 + Math.sin(time) * 5) * RENDER_SCALE;
+            ctx.shadowBlur = (40 + Math.sin(time) * 20) * COORD_SCALE; // 10 * 4
             ctx.shadowColor = 'white';
 
             if (item.type === 'treasure_chest') {
                 // Goldene Kiste
                 ctx.fillStyle = '#DAA520'; 
-                ctx.fillRect(sx, sy + 10 * RENDER_SCALE, sw, sh - 10 * RENDER_SCALE); // Body
+                ctx.fillRect(sx, sy + 40 * COORD_SCALE, sw, sh - 40 * COORD_SCALE); // 10 * 4
                 
                 ctx.fillStyle = '#FFD700'; 
-                ctx.fillRect(sx, sy, sw, 10 * RENDER_SCALE); // Deckel
+                ctx.fillRect(sx, sy, sw, 40 * COORD_SCALE); 
                 
                 ctx.strokeStyle = '#8B4513';
-                ctx.lineWidth = 2 * RENDER_SCALE;
-                ctx.strokeRect(sx, sy + 10 * RENDER_SCALE, sw, sh - 10 * RENDER_SCALE);
-                ctx.strokeRect(sx, sy, sw, 10 * RENDER_SCALE);
+                ctx.lineWidth = 8 * COORD_SCALE; // 2 * 4
+                ctx.strokeRect(sx, sy + 40 * COORD_SCALE, sw, sh - 40 * COORD_SCALE);
+                ctx.strokeRect(sx, sy, sw, 40 * COORD_SCALE);
                 
                 // Schloss
                 ctx.fillStyle = '#C0C0C0';
-                const lockSize = 8 * RENDER_SCALE;
-                ctx.fillRect(sx + sw/2 - lockSize/2, sy + 8 * RENDER_SCALE, lockSize, lockSize);
+                const lockSize = 32 * COORD_SCALE; // 8 * 4
+                ctx.fillRect(sx + sw/2 - lockSize/2, sy + 32 * COORD_SCALE, lockSize, lockSize);
                 
             } else if (item.type === 'potion_hp') {
                 ctx.fillStyle = '#f00';
                 ctx.beginPath();
-                ctx.arc(sx + sw/2, sy + sh/2 + 2 * RENDER_SCALE, 8 * RENDER_SCALE, 0, Math.PI * 2); // Flasche
+                ctx.arc(sx + sw/2, sy + sh/2 + 8 * COORD_SCALE, 32 * COORD_SCALE, 0, Math.PI * 2); // 8*4
                 ctx.fill();
                 ctx.fillStyle = '#fff';
-                ctx.fillRect(sx + sw/2 - 2 * RENDER_SCALE, sy + sh/2 - 8 * RENDER_SCALE, 4 * RENDER_SCALE, 6 * RENDER_SCALE); // Hals
+                ctx.fillRect(sx + sw/2 - 8 * COORD_SCALE, sy + sh/2 - 32 * COORD_SCALE, 16 * COORD_SCALE, 24 * COORD_SCALE); // 4*4, 6*4
             } else if (item.type === 'weapon_sword') {
                 ctx.fillStyle = '#ccc';
-                ctx.fillRect(sx + sw/2 - 2 * RENDER_SCALE, sy, 4 * RENDER_SCALE, sh); // Klinge
+                ctx.fillRect(sx + sw/2 - 8 * COORD_SCALE, sy, 16 * COORD_SCALE, sh); // 4*4
                 ctx.fillStyle = '#8b4513';
-                ctx.fillRect(sx, sy + sh - 6 * RENDER_SCALE, sw, 4 * RENDER_SCALE); // Griff
+                ctx.fillRect(sx, sy + sh - 24 * COORD_SCALE, sw, 16 * COORD_SCALE); // 6*4, 4*4
             } else if (item.type === 'weapon_wand') {
                 ctx.fillStyle = '#8b4513';
-                ctx.fillRect(sx + sw/2 - 2 * RENDER_SCALE, sy, 4 * RENDER_SCALE, sh); // Stab
+                ctx.fillRect(sx + sw/2 - 8 * COORD_SCALE, sy, 16 * COORD_SCALE, sh); 
                 ctx.fillStyle = '#00ffff';
                 ctx.beginPath();
-                ctx.arc(sx + sw/2, sy + 2 * RENDER_SCALE, 5 * RENDER_SCALE, 0, Math.PI * 2); // Gem
+                ctx.arc(sx + sw/2, sy + 8 * COORD_SCALE, 20 * COORD_SCALE, 0, Math.PI * 2); // 5*4
                 ctx.fill();
             } else if (item.type === 'next_floor') {
                 const cx = sx + sw/2;
@@ -289,14 +312,14 @@ export class Renderer {
                 ctx.arc(cx, cy, radius, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.strokeStyle = '#00bfff';
-                ctx.lineWidth = 3 * RENDER_SCALE;
+                ctx.lineWidth = 12 * COORD_SCALE; // 3 * 4
                 ctx.beginPath();
                 ctx.arc(cx, cy, radius * 0.7, 0, Math.PI * 2);
                 ctx.stroke();
                 ctx.fillStyle = '#00bfff';
-                ctx.font = `bold ${14 * RENDER_SCALE}px sans-serif`;
+                ctx.font = `bold ${56 * COORD_SCALE}px sans-serif`; // 14 * 4
                 ctx.textAlign = 'center';
-                ctx.fillText('↓', cx, cy + 5 * RENDER_SCALE);
+                ctx.fillText('↓', cx, cy + 20 * COORD_SCALE); // 5 * 4
             }
             
             ctx.shadowBlur = 0;
@@ -306,7 +329,7 @@ export class Renderer {
     drawWallsAndDoors(camX, camY) {
         if (!this.map.currentRoom || !this.map.currentRoom.tiles) return;
 
-        const ctx = this.bufferCtx;
+        const ctx = this.ctx;
         const tiles = this.map.currentRoom.tiles;
         const rows = tiles.length;
         const cols = tiles[0].length;
@@ -317,11 +340,11 @@ export class Renderer {
                 const tile = tiles[r][c];
                 
                 // Manual Scale Calculation
-                const worldX = c * TILE_SIZE;
-                const worldY = r * TILE_SIZE;
-                const sx = (worldX - camX) * RENDER_SCALE;
-                const sy = (worldY - camY) * RENDER_SCALE;
-                const sTile = TILE_SIZE * RENDER_SCALE;
+                const worldX = c * TILE_WORLD;
+                const worldY = r * TILE_WORLD;
+                const sx = (worldX - camX) * COORD_SCALE;
+                const sy = (worldY - camY) * COORD_SCALE;
+                const sTile = TILE_WORLD * COORD_SCALE;
                 
                 if (tile === TILE.WALL || tile === TILE.VOID) {
                     // Autotile: einfache Kanten-Hervorhebung basierend auf Nachbarn
@@ -331,7 +354,7 @@ export class Renderer {
                     ctx.fillRect(sx, sy, sTile, sTile);
 
                     // Außenkanten hervorheben, wenn kein Nachbar anliegt
-                    ctx.lineWidth = 1 * RENDER_SCALE;
+                    ctx.lineWidth = 4 * COORD_SCALE; // 1 * 4
                     ctx.strokeStyle = isVoid ? '#0a0a0a' : '#1b5e20';
                     if (!mask.up) {
                         ctx.beginPath();
@@ -409,7 +432,7 @@ export class Renderer {
     }
 
     drawEntity(entity, color, camX, camY) {
-        const ctx = this.bufferCtx;
+        const ctx = this.ctx;
         const sx = (Math.floor(entity.x) - camX) * RENDER_SCALE;
         const sy = (Math.floor(entity.y) - camY) * RENDER_SCALE;
         const sw = entity.width * RENDER_SCALE;
@@ -458,7 +481,7 @@ export class Renderer {
             ctx.fillRect(sx, sy, sw, sh);
             
             ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2 * RENDER_SCALE;
+            ctx.lineWidth = 8 * COORD_SCALE; // 2 * 4
             ctx.strokeRect(sx, sy, sw, sh);
             
             ctx.fillStyle = '#000';
@@ -477,23 +500,25 @@ export class Renderer {
              const hw = hb.width * RENDER_SCALE;
              const hh = hb.height * RENDER_SCALE;
              ctx.strokeStyle = '#00ff00';
-             ctx.lineWidth = 1;
+             ctx.lineWidth = 4;
              ctx.strokeRect(hx, hy, hw, hh);
         }
     }
 
-    drawHealthBar(entity, camX, camY) {
-        this.drawBars(entity, false, camX, camY);
+    drawHealthBar(entity, camX, camY, ctx) {
+        this.drawBars(entity, false, camX, camY, ctx);
     }
 
-    drawBars(entity, showExp = true, camX, camY) {
-        const ctx = this.bufferCtx;
-        const sx = (Math.floor(entity.x) - camX) * RENDER_SCALE;
-        const sy = (Math.floor(entity.y) - camY) * RENDER_SCALE;
-        const barWidth = entity.width * RENDER_SCALE;
-        const barHeight = 3 * RENDER_SCALE; // Smaller bars
+    drawBars(entity, showExp, camX, camY, targetCtx) {
+        const ctx = targetCtx || this.ctx;
         
-        let hpY = sy - 5 * RENDER_SCALE; // Closer to entity
+        // Calculate Screen Positions
+        const sx = (Math.floor(entity.x) - camX) * ACTUAL_SCALE;
+        const sy = (Math.floor(entity.y) - camY) * ACTUAL_SCALE;
+        const barWidth = entity.width * COORD_SCALE;
+        const barHeight = 12 * COORD_SCALE; // 3 * 4
+        
+        let hpY = sy - 20 * COORD_SCALE; // 5 * 4
         
         ctx.fillStyle = '#000';
         ctx.fillRect(sx, hpY, barWidth, barHeight);
@@ -503,7 +528,7 @@ export class Renderer {
         ctx.fillRect(sx, hpY, barWidth * hpPercent, barHeight);
         
         if (showExp && entity === this.player) {
-            let expY = hpY - 4 * RENDER_SCALE; // Closer stack
+            let expY = hpY - 16 * COORD_SCALE; // 4 * 4
             
             ctx.fillStyle = '#000';
             ctx.fillRect(sx, expY, barWidth, barHeight);
@@ -515,35 +540,39 @@ export class Renderer {
         }
     }
 
-    drawLabel(entity, text, camX, camY) {
-        const ctx = this.bufferCtx;
-        const sx = (entity.x - camX) * RENDER_SCALE;
-        const sy = (entity.y - camY) * RENDER_SCALE;
-        const sw = entity.width * RENDER_SCALE;
+    drawLabel(entity, text, camX, camY, targetCtx) {
+        const ctx = targetCtx || this.ctx;
+        const sx = (entity.x - camX) * ACTUAL_SCALE;
+        const sy = (entity.y - camY) * ACTUAL_SCALE;
+        const sw = entity.width * ACTUAL_SCALE;
 
         ctx.fillStyle = '#fff';
-        ctx.font = `${8 * RENDER_SCALE}px monospace`; // Smaller font
+        // Scaled Font size for sharpness
+        const fontSize = 32 * COORD_SCALE; // 8 * 4
+        ctx.font = `bold ${fontSize}px monospace`; 
         ctx.textAlign = 'center';
-        let yOffset = -10 * RENDER_SCALE;
-        if (entity === this.player) yOffset = -15 * RENDER_SCALE;
+        
+        let yOffset = -40 * COORD_SCALE; // 10 * 4
+        if (entity === this.player) yOffset = -60 * COORD_SCALE; // 15 * 4
         
         ctx.fillText(text, sx + sw / 2, sy + yOffset);
         ctx.textAlign = 'start';
     }
 
-    drawTelegraph(enemy, camX, camY) {
-        const ctx = this.bufferCtx;
-        const cx = (enemy.x + enemy.width / 2 - camX) * RENDER_SCALE;
-        const cy = (enemy.y - 25 - camY) * RENDER_SCALE;
+    drawTelegraph(enemy, camX, camY, targetCtx) {
+        const ctx = targetCtx || this.ctx;
+        const cx = (enemy.x + enemy.width / 2 - camX) * COORD_SCALE;
+        const cy = (enemy.y - 100 - camY) * COORD_SCALE; // 25 * 4
         
         ctx.fillStyle = '#ffcc00';
         ctx.beginPath();
-        ctx.arc(cx, cy, 10 * RENDER_SCALE, 0, Math.PI * 2);
+        ctx.arc(cx, cy, 40 * COORD_SCALE, 0, Math.PI * 2); // 10 * 4
         ctx.fill();
         ctx.fillStyle = '#000';
-        ctx.font = `bold ${12 * RENDER_SCALE}px monospace`;
+        const fontSize = 48 * COORD_SCALE; // 12 * 4
+        ctx.font = `bold ${fontSize}px monospace`;
         ctx.textAlign = 'center';
-        ctx.fillText('!', cx, cy + 4 * RENDER_SCALE);
+        ctx.fillText('!', cx, cy + (fontSize/3));
         ctx.textAlign = 'start';
     }
 }

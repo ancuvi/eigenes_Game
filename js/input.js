@@ -134,22 +134,23 @@ export class InputHandler {
         }
     }
 
-    processClick(virtualX, virtualY) {
-        // screenX/Y passed to this are now already Virtual coords (from startDrag/endDrag logic flow?)
-        // Wait, processClick is called in endDrag using this.startX/startY which are now VIRTUAL.
-        // So we don't need to divide by ACTUAL_SCALE again here.
-        // But we do need to divide by RENDER_SCALE if it were not 1 (for sprite scaling).
+    screenToWorld(screenX, screenY) {
+        if (!this.renderer) return { x: screenX, y: screenY };
+        const { offsetX, offsetY, worldScale } = this.renderer;
+        const camX = this.camera ? this.camera.x : 0;
+        const camY = this.camera ? this.camera.y : 0;
         
-        let x = virtualX / RENDER_SCALE;
-        let y = virtualY / RENDER_SCALE;
+        const worldX = (screenX - offsetX) / worldScale + camX;
+        const worldY = (screenY - offsetY) / worldScale + camY;
+        return { x: worldX, y: worldY };
+    }
+
+    processClick(screenX, screenY) {
+        const worldPos = this.screenToWorld(screenX, screenY);
+        const x = worldPos.x;
+        const y = worldPos.y;
         
-        // Transform to World Space if camera exists
-        if (this.camera) {
-            x += this.camera.x;
-            y += this.camera.y;
-        }
-        
-        console.log(`Click at ${x}, ${y} (Virtual: ${virtualX}, ${virtualY})`);
+        console.log(`Click at World: ${x}, ${y} (Screen: ${screenX}, ${screenY})`);
 
         // 0. Prüfen ob Tür angeklickt wurde
         const doorDir = this.map.getDoorAt(x, y);
@@ -166,10 +167,10 @@ export class InputHandler {
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             const hitBox = {
-                x: enemy.x - 10,
-                y: enemy.y - 10,
-                width: enemy.width + 20,
-                height: enemy.height + 20
+                x: enemy.x - 40, // 10 * 4
+                y: enemy.y - 40,
+                width: enemy.width + 80, // 20 * 4
+                height: enemy.height + 80
             };
 
             if (isPointInRect(x, y, hitBox)) {

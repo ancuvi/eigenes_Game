@@ -12,7 +12,7 @@ import { SaveManager } from './saveManager.js';
 import { BalanceManager } from './balanceManager.js';
 import { ITEM_DEFINITIONS, RARITY_LEVELS } from './items/itemData.js';
 import { Item } from './item.js';
-import { RENDER_SCALE, TILE_SIZE, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, setActualScale } from './constants.js';
+import { RENDER_SCALE, TILE_SIZE, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, setActualScale, ROOM_WORLD_W, ROOM_WORLD_H } from './constants.js';
 import { AutoPilot } from './autopilot.js';
 
 class Game {
@@ -108,50 +108,68 @@ class Game {
     }
 
     handleResize() {
-        // Keep the logical canvas fixed at the virtual Isaac-style resolution.
-        const screenW = window.innerWidth;
-        const screenH = window.innerHeight;
+        this.resizeCanvas();
+    }
 
-        const scale = Math.floor(
-            Math.min(screenW / VIRTUAL_WIDTH, screenH / VIRTUAL_HEIGHT)
-        );
-        const safeScale = Math.max(1, scale);
-        setActualScale(safeScale);
+    resizeCanvas() {
+        // Neue HD-Strategie: Canvas nutzt devicePixelRatio
+        const cssW = window.innerWidth;
+        const cssH = window.innerHeight;
+        const dpr = window.devicePixelRatio || 1;
 
-        const displayWidth = VIRTUAL_WIDTH * safeScale;
-        const displayHeight = VIRTUAL_HEIGHT * safeScale;
-
-        // Canvas Internal Resolution (Fixed)
-        this.canvas.width = VIRTUAL_WIDTH;
-        this.canvas.height = VIRTUAL_HEIGHT;
-
-        // Canvas Styles (Display Size)
-        this.canvas.style.width = `${displayWidth}px`;
-        this.canvas.style.height = `${displayHeight}px`;
-        this.canvas.style.imageRendering = 'pixelated';
+        // Setze Canvas-Auflösung auf physische Pixel
+        this.canvas.width = Math.floor(cssW * dpr);
+        this.canvas.height = Math.floor(cssH * dpr);
         
-        // Debug output to verify the calculated integer scale in the browser console.
-        console.log("Resize:", {screenW,screenH,scale,safeScale,display: {w:this.canvas.style.width, h:this.canvas.style.height}});
+        // Force Canvas Style to match window (Fullscreen)
+        this.canvas.style.width = `${cssW}px`;
+        this.canvas.style.height = `${cssH}px`;
+        
+        // Context transformieren, damit 1 Drawing Unit = 1 CSS Pixel
+        const ctx = this.canvas.getContext('2d');
+        if (ctx) {
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.imageSmoothingEnabled = false; 
+        }
 
-        // Update Camera Viewport
+        setActualScale(1);
+
+        // Calculate World Fit (Letterboxing)
+        const worldScale = Math.min(cssW / ROOM_WORLD_W, cssH / ROOM_WORLD_H) * 0.95; 
+        const offsetX = (cssW - ROOM_WORLD_W * worldScale) / 2;
+        const offsetY = (cssH - ROOM_WORLD_H * worldScale) / 2;
+
+        if (this.renderer) {
+            this.renderer.updateScale(worldScale, offsetX, offsetY);
+        }
+
+        console.log("Resize (Fit):", {cssW, cssH, dpr, worldScale, offsetX, offsetY});
+
         if (this.camera) {
-            this.camera.width = VIRTUAL_WIDTH;
-            this.camera.height = VIRTUAL_HEIGHT;
+            // Camera works in world units; convert viewport size from CSS px to world units and clamp to room size
+            const viewWorldWidth = Math.min(cssW / worldScale, ROOM_WORLD_W);
+            const viewWorldHeight = Math.min(cssH / worldScale, ROOM_WORLD_H);
+            this.camera.width = viewWorldWidth;
+            this.camera.height = viewWorldHeight;
         }
         
         if (!this.isRunning && this.renderer) {
-            this.renderer.draw();
+            this.renderer.drawWorld();
+            this.renderer.drawUI();
         }
     }
 
     init() {
         console.log('Initializing Game...');
-        this.handleResize();
         
         // Camera operates in Virtual Units
         this.camera = new Camera(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
         this.inputHandler.camera = this.camera;
+        // Create renderer first to receive resize updates
         this.renderer = new Renderer(this.canvas, this.player, this.map, this.inputHandler, this.camera);
+        this.inputHandler.renderer = this.renderer; // Link renderer to input for coordinate mapping
+        
+        this.handleResize();
 
         this.centerPlayer();
 
@@ -714,7 +732,8 @@ class Game {
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         } else {
-            this.renderer.draw();
+            this.renderer.drawWorld();
+            this.renderer.drawUI();
         }
 
         requestAnimationFrame((ts) => this.gameLoop(ts));

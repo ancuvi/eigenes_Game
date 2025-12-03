@@ -5,7 +5,7 @@ import * as UI from './ui.js';
 import { ITEM_DEFINITIONS, ITEM_SETS } from './items/itemData.js';
 import { SaveManager } from './saveManager.js';
 import { 
-    PLAYER_SIZE, PLAYER_HITBOX_SIZE, PLAYER_HITBOX_OFFSET,
+    PLAYER_SIZE, PLAYER_SPRITE_SIZE, PLAYER_HITBOX_SIZE, PLAYER_HITBOX_OFFSET,
     PLAYER_MAX_SPEED, PLAYER_ACCEL, PLAYER_FRICTION, PLAYER_STOP_EPS 
 } from './constants.js';
 
@@ -46,7 +46,7 @@ export class Player {
         this.exp = 0;
 
         // Offensive Zusatzwerte (vorerst 0)
-        this.range = 60;
+        this.range = 240; // 60 * 4
         this.rangeDamageMultiplier = 0;
         this.slowChance = 0;
         this.slowStrength = 0;
@@ -97,8 +97,8 @@ export class Player {
         this.runLoot = {}; 
 
         // Position & Größe
-        this.width = PLAYER_SIZE;
-        this.height = PLAYER_SIZE;
+        this.width = PLAYER_SPRITE_SIZE;
+        this.height = PLAYER_SPRITE_SIZE;
         this.x = 0; 
         this.y = 0;
         
@@ -115,8 +115,8 @@ export class Player {
         this.moveMode = 'manual'; // 'manual' (Joystick) or 'auto' (Click/Bot)
 
         this.isDashing = false;
-        this.dashRange = 100;
-        this.dashSpeed = 480;
+        this.dashRange = 400; // 100 * 4
+        this.dashSpeed = 1920; // 480 * 4
         this.dashBonusReady = false;
 
         this.invulnTimer = 0;
@@ -203,7 +203,7 @@ export class Player {
         
         this.hpRegen = 1 + (this.upgrades.regen * UPGRADE_CONFIG.regen.perLevel);
         
-        this.range = 35; // Default Melee (Reduced for better feel)
+        this.range = 140; // 35 * 4
         this.weapon = 'fist';
         this.critMultiplier = 1.5;
         this.attackRate = this.level >= 10 ? 1.2 : 1.0;
@@ -623,7 +623,7 @@ export class Player {
         const meleeWeapons = ['sword', 'dagger', 'fist'];
         const useMelee = meleeWeapons.includes(this.weapon);
         const overlap = nearest ? checkCollision(this, nearest) : false;
-        const allowedRange = useMelee ? 0 : 160; // ranged window halbiert
+        const allowedRange = useMelee ? 0 : 640; // 160 * 4
 
         if (nearest && (overlap || (!useMelee && minDist <= allowedRange))) {
             if (this.attackCooldownTimer <= 0) {
@@ -670,7 +670,7 @@ export class Player {
             // Distance Bonus (Archer Set)
             if (this.distanceDamageBonus > 0) {
                 const dist = getDistance(this.x + this.width/2, this.y + this.height/2, enemy.x + enemy.width/2, enemy.y + enemy.height/2);
-                const ratio = Math.min(1.0, dist / 400);
+                const ratio = Math.min(1.0, dist / 1600); // 400 * 4
                 dmg *= (1 + this.distanceDamageBonus * ratio);
             }
 
@@ -704,21 +704,21 @@ export class Player {
                 // Nahkampf + Knockback (Fist behaves like Sword)
                 enemy.takeDamage(dmg, this, map); // Pass map for knockback bounds
                 if (!enemy.isBoss) { 
-                    pushBack(enemy, this, 50, map ? map.currentRoom : null); 
+                    pushBack(enemy, this, 200, map ? map.currentRoom : null); // 50 * 4
                 }
             } else if (this.weapon === 'wand' || this.weapon === 'bow') {
                 // Fernkampf Projektil
                 if (map) {
                     // Small delay for second shot?
                     // Simplified: Spawn both immediately but with slight offset or just 2 projectiles
-                    const offset = i * 10;
+                    const offset = i * 40; // 10 * 4
                     const tx = enemy.x + enemy.width/2 + offset;
                     const ty = enemy.y + enemy.height/2 + offset;
                     const p = new Projectile(
                         this.x + this.width/2, 
                         this.y + this.height/2, 
                         tx, ty, 
-                        400, // Speed
+                        1600, // 400 * 4
                         dmg, 
                         'player'
                     );

@@ -1,6 +1,11 @@
 import { randomNumber, getDistance, pushBack, checkCollision, approach, clampLength } from './utils.js';
 import { Projectile } from './projectile.js';
-import { ENEMY_SIZE, BOSS_SIZE, MINIBOSS_SIZE, PLAYER_SIZE } from './constants.js';
+import { 
+    ENEMY_SPRITE_SIZE, ENEMY_HITBOX_SIZE, ENEMY_HITBOX_OFFSET,
+    MINIBOSS_SPRITE_SIZE, MINIBOSS_HITBOX_SIZE, MINIBOSS_HITBOX_OFFSET,
+    BOSS_SPRITE_SIZE, BOSS_HITBOX_SIZE, BOSS_HITBOX_OFFSET,
+    PLAYER_SIZE 
+} from './constants.js';
 import { CONSTANTS, BalanceManager } from './balanceManager.js';
 
 // Base Enemy Class
@@ -8,8 +13,14 @@ export class Enemy {
     constructor(stats, x, y, rank = 'normal') {
         this.x = x;
         this.y = y;
-        this.width = ENEMY_SIZE;
-        this.height = ENEMY_SIZE;
+        
+        // Default to Normal Enemy size
+        this.width = ENEMY_SPRITE_SIZE;
+        this.height = ENEMY_SPRITE_SIZE;
+        this.hitboxWidth = ENEMY_HITBOX_SIZE;
+        this.hitboxHeight = ENEMY_HITBOX_SIZE;
+        this.hitboxOffset = ENEMY_HITBOX_OFFSET;
+
         this.rank = rank;
         this.level = 1; // Used for display
         this.name = "Enemy";
@@ -24,8 +35,8 @@ export class Enemy {
 
         // Physics
         this.vel = { x: 0, y: 0 };
-        this.maxSpeed = 60;   // Target Max Speed
-        this.accel = 400;     // Acceleration
+        this.maxSpeed = 240;   // Target Max Speed
+        this.accel = 1600;     // Acceleration
         this.drag = 6;        // Exponential Drag
         this.knockbackTimer = 0;
         this.ignoresWalls = false;
@@ -34,11 +45,11 @@ export class Enemy {
         this.state = 'IDLE';
         this.stateTimer = 0;
         this.target = null;
-        this.aggroRange = 200;
+        this.aggroRange = 800;
         
         // Attack
         this.attackCooldown = 0;
-        this.attackRange = 40;
+        this.attackRange = 160;
         this.telegraphTimer = 0;
     }
 
@@ -113,7 +124,7 @@ export class Enemy {
     onPlayerContact(player, map) {
         if (this.attackCooldown <= 0) {
             player.takeDamage(this.damage, this);
-            pushBack(player, this, 20, map ? map.currentRoom : null);
+            pushBack(player, this, 80, map ? map.currentRoom : null);
             this.attackCooldown = 1.0;
         }
     }
@@ -135,6 +146,15 @@ export class Enemy {
     isDead() {
         return this.hp <= 0;
     }
+
+    getHitbox() {
+        return {
+            x: this.x + this.hitboxOffset,
+            y: this.y + this.hitboxOffset,
+            width: this.hitboxWidth,
+            height: this.hitboxHeight
+        };
+    }
 }
 
 // ---------------- SUBCLASSES ----------------
@@ -148,8 +168,8 @@ export class Glibber extends Enemy {
         this.hp = Math.floor(stats.hp * 0.8);
         
         // Glibber: Slippery (Low drag, Low accel)
-        this.maxSpeed = 50;
-        this.accel = 100;
+        this.maxSpeed = 200;
+        this.accel = 400;
         this.drag = 1.0; 
         
         this.state = 'WANDER';
@@ -178,14 +198,14 @@ export class Glibber extends Enemy {
             this.vel.y = approach(this.vel.y, targetVy, this.accel * dt);
 
             // Check aggro
-            if (dist < 150) {
+            if (dist < 600) {
                 this.state = 'CHASE';
             }
         } else if (this.state === 'CHASE') {
             // Slide towards player slowly
             this.moveTowards(player.x, player.y, dt);
             
-            if (dist > 250) {
+            if (dist > 1000) {
                 this.state = 'WANDER';
             }
         }
@@ -213,7 +233,7 @@ export class Spucker extends Enemy {
             this.stateTimer -= dt;
             const dist = getDistance(this.x, this.y, player.x, player.y);
             
-            if (this.stateTimer <= 0 && dist < 300) {
+            if (this.stateTimer <= 0 && dist < 1200) {
                 this.state = 'CHARGE';
                 this.stateTimer = 1.0; // 1s Telegraph
                 this.telegraphTimer = 1.0; // Visual indicator
@@ -234,7 +254,7 @@ export class Spucker extends Enemy {
             this.y + this.height/2, 
             player.x + player.width/2, 
             player.y + player.height/2, 
-            250, // Speed
+            1000, // Speed
             this.damage, 
             'enemy'
         );
@@ -251,8 +271,8 @@ export class Bull extends Enemy {
         this.hp = Math.floor(stats.hp * 1.5);
         
         // Normal movement
-        this.maxSpeed = 60;
-        this.accel = 400;
+        this.maxSpeed = 240;
+        this.accel = 1600;
         this.drag = 4;
         
         this.state = 'WANDER';
@@ -272,17 +292,17 @@ export class Bull extends Enemy {
             if (this.stateTimer <= 0) {
                 // Random wander impulse
                 const angle = Math.random() * Math.PI * 2;
-                this.vel.x += Math.cos(angle) * 100; // Small burst
-                this.vel.y += Math.sin(angle) * 100;
+                this.vel.x += Math.cos(angle) * 400; // Small burst
+                this.vel.y += Math.sin(angle) * 400;
                 this.stateTimer = randomNumber(1, 2);
             }
 
             // Raycast Check (Axis Aligned)
             const dx = Math.abs((this.x + this.width/2) - (player.x + player.width/2));
             const dy = Math.abs((this.y + this.height/2) - (player.y + player.height/2));
-            const alignTolerance = 24; // Width of ray
+            const alignTolerance = 96; // Width of ray
 
-            if ((dx < alignTolerance || dy < alignTolerance) && getDistance(this.x,this.y,player.x,player.y) < 300) {
+            if ((dx < alignTolerance || dy < alignTolerance) && getDistance(this.x,this.y,player.x,player.y) < 1200) {
                 this.state = 'PRE_DASH';
                 this.stateTimer = 0.5; // Telegraph
                 this.telegraphTimer = 0.5;
@@ -312,7 +332,7 @@ export class Bull extends Enemy {
     
     updatePhysics(dt, map) {
         if (this.state === 'DASH') {
-            const dashSpeed = 450;
+            const dashSpeed = 1800;
             this.vel.x = this.chargeDir.x * dashSpeed;
             this.vel.y = this.chargeDir.y * dashSpeed;
 
@@ -351,8 +371,8 @@ export class Surrer extends Enemy {
         this.hp = Math.floor(stats.hp * 0.4);
         this.ignoresWalls = true;
         
-        this.maxSpeed = 80;
-        this.accel = 200;
+        this.maxSpeed = 320;
+        this.accel = 800;
         this.drag = 2;
         
         this.time = Math.random() * 100;
@@ -374,7 +394,7 @@ export class Surrer extends Enemy {
         const perpX = -dirY;
         const perpY = dirX;
         
-        const sine = Math.sin(this.time * 5) * 50; // Amplitude
+        const sine = Math.sin(this.time * 5) * 200; // Amplitude
         
         // Target velocity construction (manual to override base moveTowards)
         const moveSpeed = this.maxSpeed;
@@ -394,8 +414,8 @@ export class Skelett extends Enemy {
         this.name = "Skelett";
         this.color = '#9e9e9e'; // Grey
         
-        this.maxSpeed = 50;
-        this.accel = 300;
+        this.maxSpeed = 200;
+        this.accel = 1200;
         this.drag = 5;
         
         this.state = 'MAINTAIN_DIST';
@@ -404,15 +424,15 @@ export class Skelett extends Enemy {
 
     updateState(dt, player, map) {
         const dist = getDistance(this.x, this.y, player.x, player.y);
-        const preferredDist = 200;
+        const preferredDist = 800;
         
         // Movement
-        if (dist < preferredDist - 50) {
+        if (dist < preferredDist - 200) {
             // Flee
             const dx = this.x - player.x;
             const dy = this.y - player.y;
             this.moveTowards(this.x + dx, this.y + dy, dt);
-        } else if (dist > preferredDist + 50) {
+        } else if (dist > preferredDist + 200) {
             // Chase
             this.moveTowards(player.x, player.y, dt);
         } else {
@@ -422,7 +442,7 @@ export class Skelett extends Enemy {
 
         // Attack
         this.attackTimer -= dt;
-        if (this.attackTimer <= 0 && dist < 400) {
+        if (this.attackTimer <= 0 && dist < 1600) {
             this.predictiveShoot(player, map);
             this.attackTimer = 2.5;
         }
@@ -442,7 +462,7 @@ export class Skelett extends Enemy {
             this.y + this.height/2, 
             tx + player.width/2, 
             ty + player.height/2, 
-            250, 
+            1000, 
             this.damage, 
             'enemy'
         );
@@ -457,12 +477,16 @@ export class NestBlock extends Enemy {
     constructor(stats, x, y, rank) {
         super(stats, x, y, 'miniboss');
         this.name = "Nest-Block";
-        this.width = MINIBOSS_SIZE; // 32
-        this.height = MINIBOSS_SIZE;
+        this.width = MINIBOSS_SPRITE_SIZE;
+        this.height = MINIBOSS_SPRITE_SIZE;
+        this.hitboxWidth = MINIBOSS_HITBOX_SIZE;
+        this.hitboxHeight = MINIBOSS_HITBOX_SIZE;
+        this.hitboxOffset = MINIBOSS_HITBOX_OFFSET;
+        
         this.color = '#8d6e63'; // Wood/Nest color
         
-        this.maxSpeed = 20;
-        this.accel = 50;
+        this.maxSpeed = 80;
+        this.accel = 200;
         this.drag = 5;
         
         this.spawnTimer = 3.0;
@@ -509,12 +533,12 @@ export class NestBlock extends Enemy {
         const count = 8;
         for (let i = 0; i < count; i++) {
             const angle = (Math.PI * 2 / count) * i;
-            const tx = this.x + Math.cos(angle) * 100;
-            const ty = this.y + Math.sin(angle) * 100;
+            const tx = this.x + Math.cos(angle) * 400;
+            const ty = this.y + Math.sin(angle) * 400;
             const p = new Projectile(
                 this.x + this.width/2, this.y + this.height/2,
                 tx, ty,
-                200, this.damage, 'enemy'
+                800, this.damage, 'enemy'
             );
             map.addProjectile(p);
         }
@@ -526,12 +550,16 @@ export class Ironhead extends Enemy {
     constructor(stats, x, y, rank) {
         super(stats, x, y, 'boss');
         this.name = "Ironhead";
-        this.width = BOSS_SIZE; // 48
-        this.height = BOSS_SIZE;
+        this.width = BOSS_SPRITE_SIZE;
+        this.height = BOSS_SPRITE_SIZE;
+        this.hitboxWidth = BOSS_HITBOX_SIZE;
+        this.hitboxHeight = BOSS_HITBOX_SIZE;
+        this.hitboxOffset = BOSS_HITBOX_OFFSET;
+
         this.color = '#607d8b'; // Blue Grey
         
-        this.maxSpeed = 40;
-        this.accel = 200;
+        this.maxSpeed = 160;
+        this.accel = 800;
         this.drag = 4;
         
         this.phase = 1;
@@ -584,7 +612,7 @@ export class Ironhead extends Enemy {
                 const cx = map.currentRoom.width / 2 - this.width/2;
                 const cy = map.currentRoom.height / 2 - this.height/2;
                 const dist = getDistance(this.x, this.y, cx, cy);
-                if (dist > 5) {
+                if (dist > 20) {
                     this.moveTowards(cx, cy, dt);
                 } else {
                     this.state = 'CENTERING';
@@ -605,12 +633,12 @@ export class Ironhead extends Enemy {
         const count = 12;
         for (let i = 0; i < count; i++) {
             const angle = (Math.PI * 2 / count) * i;
-            const tx = this.x + Math.cos(angle) * 100;
-            const ty = this.y + Math.sin(angle) * 100;
+            const tx = this.x + Math.cos(angle) * 400;
+            const ty = this.y + Math.sin(angle) * 400;
             const p = new Projectile(
                 this.x + this.width/2, this.y + this.height/2,
                 tx, ty,
-                250, this.damage, 'enemy'
+                1000, this.damage, 'enemy'
             );
             map.addProjectile(p);
         }
@@ -619,16 +647,16 @@ export class Ironhead extends Enemy {
     spiralShoot(map) {
         this.spiralAngle += 0.2;
         const angle = this.spiralAngle;
-        const tx = this.x + Math.cos(angle) * 100;
-        const ty = this.y + Math.sin(angle) * 100;
+        const tx = this.x + Math.cos(angle) * 400;
+        const ty = this.y + Math.sin(angle) * 400;
         
         // Twin spiral
         const angle2 = this.spiralAngle + Math.PI;
-        const tx2 = this.x + Math.cos(angle2) * 100;
-        const ty2 = this.y + Math.sin(angle2) * 100;
+        const tx2 = this.x + Math.cos(angle2) * 400;
+        const ty2 = this.y + Math.sin(angle2) * 400;
 
-        const p1 = new Projectile(this.x + this.width/2, this.y + this.height/2, tx, ty, 200, this.damage, 'enemy');
-        const p2 = new Projectile(this.x + this.width/2, this.y + this.height/2, tx2, ty2, 200, this.damage, 'enemy');
+        const p1 = new Projectile(this.x + this.width/2, this.y + this.height/2, tx, ty, 800, this.damage, 'enemy');
+        const p2 = new Projectile(this.x + this.width/2, this.y + this.height/2, tx2, ty2, 800, this.damage, 'enemy');
         
         map.addProjectile(p1);
         map.addProjectile(p2);
