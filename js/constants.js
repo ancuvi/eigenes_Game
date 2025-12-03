@@ -8,15 +8,14 @@ export const ROOM_TILES_H = 9;
 export const ROOM_WORLD_W = ROOM_TILES_W * TILE_WORLD;
 export const ROOM_WORLD_H = ROOM_TILES_H * TILE_WORLD;
 
-export const COORD_SCALE = 1; // Logic == World now
+export const COORD_SCALE = 1; // Logic == World now (kept for legacy references)
 
 export const RENDER_SCALE = 1; // Legacy
 
 export const VIRTUAL_WIDTH = ROOM_WORLD_W; 
 export const VIRTUAL_HEIGHT = ROOM_WORLD_H; 
 
-export let ACTUAL_SCALE = 1; 
-export function setActualScale(s) { ACTUAL_SCALE = s; }
+export const ACTUAL_SCALE = 1;
 
 // Entity Sizes (in World Pixels)
 export const HITBOX_SCALE = 0.65;

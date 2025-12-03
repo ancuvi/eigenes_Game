@@ -12,7 +12,7 @@ import { SaveManager } from './saveManager.js';
 import { BalanceManager } from './balanceManager.js';
 import { ITEM_DEFINITIONS, RARITY_LEVELS } from './items/itemData.js';
 import { Item } from './item.js';
-import { RENDER_SCALE, TILE_SIZE, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, setActualScale, ROOM_WORLD_W, ROOM_WORLD_H } from './constants.js';
+import { RENDER_SCALE, TILE_SIZE, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, ROOM_WORLD_W, ROOM_WORLD_H } from './constants.js';
 import { AutoPilot } from './autopilot.js';
 
 class Game {
@@ -125,14 +125,12 @@ class Game {
         this.canvas.style.width = `${cssW}px`;
         this.canvas.style.height = `${cssH}px`;
         
-        // Context transformieren, damit 1 Drawing Unit = 1 CSS Pixel
+        // Context transformieren, damit 1 Drawing Unit = 1 CSS Pixel (World-Transform erfolgt im Renderer)
         const ctx = this.canvas.getContext('2d');
         if (ctx) {
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.imageSmoothingEnabled = false; 
+            ctx.imageSmoothingEnabled = false; // Pixelart crispness vs. HD assets smoothing
         }
-
-        setActualScale(1);
 
         // Calculate World Fit (Letterboxing)
         const worldScale = Math.min(cssW / ROOM_WORLD_W, cssH / ROOM_WORLD_H) * 0.95; 
@@ -664,9 +662,9 @@ class Game {
             // Spawn Player correctly in Room Center
             if (this.map.currentRoom) {
                 const tiles = this.map.currentRoom.tiles;
-                // Center spawn using Virtual Resolution
-                this.player.x = (VIRTUAL_WIDTH - this.player.width) / 2;
-                this.player.y = (VIRTUAL_HEIGHT - this.player.height) / 2;
+                // Center spawn using room/world dimensions
+                this.player.x = (ROOM_WORLD_W - this.player.width) / 2;
+                this.player.y = (ROOM_WORLD_H - this.player.height) / 2;
                 
                 // Force Camera Update immediately
                 if (this.camera) {
@@ -680,9 +678,9 @@ class Game {
     }
 
     centerPlayer() {
-        // Center in World Space
-        const worldW = VIRTUAL_WIDTH;
-        const worldH = VIRTUAL_HEIGHT;
+        // Center in World Space based on room/world size
+        const worldW = ROOM_WORLD_W;
+        const worldH = ROOM_WORLD_H;
         this.player.x = (worldW - this.player.width) / 2;
         this.player.y = (worldH - this.player.height) / 2;
         this.player.targetX = this.player.x;
@@ -729,6 +727,8 @@ class Game {
         if (this.gameState === 'START') {
             // Schwarzer Hintergrund im Startmenü
             const ctx = this.canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         } else {

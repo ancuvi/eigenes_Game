@@ -106,9 +106,6 @@ body {
 
 canvas {
     display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-    /* Width/Height set via JS for integer scaling */
 }
 
 /* Start Screen */
@@ -129,7 +126,7 @@ canvas {
 }
 
 .game-title {
-    font-size: 3rem;
+    font-size: clamp(4rem, 7vw, 8rem);
     color: #4caf50;
     text-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
     margin-bottom: 50px;
@@ -139,14 +136,14 @@ canvas {
 .menu-container {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 28px;
     align-items: center;
-    width: 300px;
+    width: clamp(420px, 45vw, 800px);
 }
 
 .menu-btn {
     width: 100%;
-    padding: 15px;
+    padding: 18px;
     font-family: inherit;
     font-weight: bold;
     border: 2px solid transparent;
@@ -159,8 +156,8 @@ canvas {
 .menu-btn.primary {
     background: #4caf50;
     color: white;
-    font-size: 1.5rem;
-    padding: 20px;
+    font-size: 1.6rem;
+    padding: 22px;
     border-radius: 8px;
 }
 
@@ -209,7 +206,7 @@ canvas {
     border: 2px solid #444;
     border-radius: 12px;
     padding: 20px;
-    width: 400px;
+    width: clamp(420px, 40vw, 720px);
     max-width: 90%;
     max-height: 90%;
     display: flex;
