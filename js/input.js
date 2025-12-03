@@ -17,7 +17,7 @@ export class InputHandler {
         this.currentX = 0;
         this.currentY = 0;
         this.dragThreshold = 5; // Reduziert für schnelleres Ansprechen
-        this.maxRadius = 25;    // Max Radius für den Joystick (kleiner)
+        this.maxRadius = 34;    // Max Radius für den Joystick (größerer Bewegungsraum)
 
         // Event Listener hinzufügen
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));

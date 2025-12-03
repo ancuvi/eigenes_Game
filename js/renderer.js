@@ -114,8 +114,8 @@ export class Renderer {
             const currX = this.inputHandler.currentX;
             const currY = this.inputHandler.currentY;
             
-            const outerRadius = 25; 
-            const innerRadius = 10;
+            const outerRadius = 34; 
+            const innerRadius = 14;
             
             ctx.save();
             ctx.globalAlpha = this.joystickOpacity;
