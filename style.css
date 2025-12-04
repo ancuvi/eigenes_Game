@@ -113,13 +113,15 @@ canvas {
     position: absolute;
     inset: 0;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    justify-content: flex-end;
     align-items: center;
     overflow-y: auto;
     z-index: 100;
-    padding: clamp(20px, 4vw, 48px);
-    background: radial-gradient(circle at 20% 20%, rgba(76, 175, 80, 0.12), rgba(26, 26, 26, 0.9) 40%), #0d0d0d;
-    backdrop-filter: blur(4px);
+    background-image: url('assets/start_screen/start_screen_bg.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 #start-screen.hidden {
@@ -127,16 +129,17 @@ canvas {
 }
 
 .start-card {
-    width: min(1100px, 100%);
-    background: rgba(20, 20, 20, 0.95);
-    border: 1px solid #2f2f2f;
-    border-radius: 16px;
-    padding: clamp(16px, 3vw, 28px);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
-    display: grid;
-    grid-template-columns: 1.15fr 1fr;
-    gap: clamp(18px, 3vw, 30px);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
     align-items: center;
+    padding: 0;
+    gap: 16px;
+    background: none;
+    border: none;
+    box-shadow: none;
 }
 
 .title-block {
@@ -154,13 +157,8 @@ canvas {
     font-size: 0.9rem;
 }
 
-.game-title {
-    margin: 0;
-    font-size: clamp(2.6rem, 7vw, 6rem);
-    color: #7fffb7;
-    text-shadow: 0 0 24px rgba(76, 175, 80, 0.45);
-    text-align: center;
-    line-height: 1.05;
+#start-screen .game-title {
+    display: none;
 }
 
 .tagline {
@@ -173,58 +171,56 @@ canvas {
 
 .menu-grid,
 .menu-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 14px;
-    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+    width: clamp(260px, 80vw, 600px);
+    margin-bottom: 60px;
+}
+
+@media (max-height: 520px) {
+    .menu-grid,
+    .menu-container {
+        margin-bottom: 36px;
+    }
 }
 
 .menu-btn {
     width: 100%;
-    padding: clamp(14px, 2.4vw, 18px);
+    padding: 16px;
     font-family: inherit;
     font-weight: bold;
-    border: 2px solid transparent;
+    border-radius: 999px;
+    border: 2px solid #5af0ff;
+    background: rgba(0, 0, 0, 0.65);
+    color: #ffffff;
     cursor: pointer;
-    transition: all 0.2s;
     text-transform: uppercase;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    border-radius: 10px;
-    min-height: 64px;
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+    transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+    min-height: 56px;
+}
+
+.menu-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0 14px rgba(255, 255, 255, 0.3);
+    background: rgba(0, 0, 0, 0.8);
 }
 
 .menu-btn.primary {
-    background: #4caf50;
-    color: white;
-    font-size: clamp(1.1rem, 2vw, 1.4rem);
-    letter-spacing: 0.05em;
-    grid-column: 1 / -1;
-}
-
-.menu-btn.primary:hover {
-    background: #45a049;
-    transform: scale(1.05);
+    border-color: #5af0ff;
+    box-shadow: 0 0 15px rgba(90, 240, 255, 0.9);
 }
 
 .menu-btn.secondary {
-    background: linear-gradient(140deg, #191919, #111);
-    color: #ccc;
-    font-size: clamp(1rem, 1.8vw, 1.1rem);
-    border: 1px solid #3d3d3d;
-}
-
-.menu-btn.secondary:hover {
-    background: #262626;
-    border-color: #5e5e5e;
-    color: #f5f5f5;
+    border-color: #ff9ad5;
+    box-shadow: 0 0 12px rgba(255, 154, 213, 0.7);
 }
 
 @media (max-width: 360px) {
-    .start-card {
-        grid-template-columns: 1fr;
-        text-align: center;
-    }
-
     .title-block {
         align-items: center;
     }
@@ -240,22 +236,12 @@ canvas {
 }
 
 @media (max-height: 680px) {
-    .start-card {
-        gap: 12px;
-        padding: clamp(12px, 2vw, 18px);
-    }
-
     .menu-btn {
         min-height: 56px;
     }
 }
 
 @media (max-width: 520px) {
-    .start-card {
-        padding: 14px;
-        gap: 12px;
-    }
-
     .title-block {
         gap: 8px;
     }
