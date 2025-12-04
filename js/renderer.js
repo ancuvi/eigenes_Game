@@ -29,6 +29,15 @@ function loadFloorSprites() {
     return sprites;
 }
 
+// Stone Sprites for obstacles
+function loadStoneSprites() {
+    const stone1 = new Image();
+    stone1.src = 'assets/stones/stone1.png';
+    const stone3 = new Image();
+    stone3.src = 'assets/stones/stone3.png';
+    return { stone1, stone3 };
+}
+
 export class Renderer {
     constructor(canvas, player, map, inputHandler, camera) {
         this.canvas = canvas;
@@ -47,6 +56,7 @@ export class Renderer {
         this.offsetY = 0;
 
         this.floorSprites = loadFloorSprites();
+        this.stoneSprites = loadStoneSprites();
     }
 
     updateScale(scale, ox, oy) {
@@ -440,13 +450,20 @@ export class Renderer {
                     if (!mask.down && !mask.left) ctx.fillRect(sx, sy + sTile * 0.75, sTile * 0.25, sTile * 0.25);
                     if (!mask.down && !mask.right) ctx.fillRect(sx + sTile * 0.75, sy + sTile * 0.75, sTile * 0.25, sTile * 0.25);
                 } else if (tile === TILE.OBSTACLE) {
-                    ctx.fillStyle = '#555';
-                    ctx.fillRect(sx, sy, sTile, sTile);
-                    ctx.strokeStyle = '#222';
-                    ctx.strokeRect(sx, sy, sTile, sTile);
-                    // 3D effect highlight
-                    ctx.fillStyle = 'rgba(255,255,255,0.1)';
-                    ctx.fillRect(sx, sy, sTile, sTile/3);
+                    // Deterministischer Pick basierend auf Position
+                    const hash = (r * 73856093) ^ (c * 19349663);
+                    const useStone3 = (hash & 1) === 1;
+                    const img = useStone3 ? this.stoneSprites.stone3 : this.stoneSprites.stone1;
+
+                    if (img && img.complete) {
+                        ctx.drawImage(img, sx, sy, sTile, sTile);
+                    } else {
+                        // Fallback: simple Box, falls Image noch lädt
+                        ctx.fillStyle = '#555';
+                        ctx.fillRect(sx, sy, sTile, sTile);
+                        ctx.strokeStyle = '#222';
+                        ctx.strokeRect(sx, sy, sTile, sTile);
+                    }
                 } else if (tile === TILE.DOOR_NORTH || tile === TILE.DOOR_SOUTH || 
                            tile === TILE.DOOR_EAST || tile === TILE.DOOR_WEST) {
                     
