@@ -306,15 +306,7 @@ canvas {
 }
 
 .patch-notes-body {
-    color: #ddd;
-    font-family: monospace;
-    line-height: 1.6;
-    overflow-y: auto;
-    flex: 1;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+    display: none; /* legacy styles hidden */
 }
 
 .patch-entry {
@@ -341,6 +333,107 @@ canvas {
 
 .patch-list li {
     margin-bottom: 6px;
+}
+
+/* Patch Notes: Framed panel */
+.patch-window {
+    position: relative;
+    width: min(90vw, 900px);
+    aspect-ratio: 16 / 9;
+    background-image: url('assets/patch_notes/patch_frame.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 60px 80px 70px;
+    box-sizing: border-box;
+    color: #fff;
+    font-family: "Courier New", monospace;
+}
+
+.patch-close {
+    position: absolute;
+    top: 18px;
+    right: 24px;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 2px solid #666;
+    background: rgba(0, 0, 0, 0.8);
+    color: #ddd;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.patch-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.patch-title {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #4caf50;
+    text-align: center;
+    margin-bottom: 16px;
+    text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+}
+
+.patch-scroll {
+    width: 100%;
+    flex: 1;
+    background: rgba(0, 0, 0, 0.85);
+    border-radius: 4px;
+    padding: 16px 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+.patch-scroll::-webkit-scrollbar {
+    width: 10px;
+}
+
+.patch-scroll::-webkit-scrollbar-track {
+    background: #111;
+    border-radius: 5px;
+}
+
+.patch-scroll::-webkit-scrollbar-thumb {
+    background: #44ff88;
+    border-radius: 5px;
+    border: 2px solid #111;
+}
+
+.patch-scroll::-webkit-scrollbar-thumb:hover {
+    background: #66ffaa;
+}
+
+.patch-scroll .patch-entry {
+    margin-bottom: 20px;
+    background: none;
+    border: none;
+    padding: 0;
+    box-shadow: none;
+}
+
+.patch-scroll .patch-date {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.patch-scroll .patch-entry ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.patch-scroll .patch-entry li {
+    margin-bottom: 4px;
 }
 
 /* Inventory Styles */

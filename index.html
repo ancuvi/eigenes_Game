@@ -67,34 +67,30 @@
 
         <!-- Patch Notes Modal -->
         <div id="patch-notes-modal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Latest Updates</h2>
-                    <button class="close-modal" data-target="patch-notes-modal">×</button>
-                </div>
-                <div class="patch-notes-body">
+            <div class="patch-window">
+                <button class="patch-close close-modal" data-target="patch-notes-modal">×</button>
+                <div class="patch-title">Game Updates</div>
+
+                <div class="patch-scroll">
                     <div class="patch-entry">
                         <div class="patch-date">04.12.2025</div>
-                        <ul class="patch-list">
-                            <li>🧩 <strong>Sprites auf 64×64 vereinheitlicht:</strong> klarere Kollisionen & knackigere Pixelkanten.</li>
-                            <li>🎛️ <strong>Startscreen neu aufgebaut:</strong> Button-Grid, Tagline und bessere Lesbarkeit auf allen Geräten.</li>
-                            <li>🧾 <strong>Patch-Notizen mit Datum:</strong> Chronologisch scrollen und ältere Updates nachlesen.</li>
-                            <li>🖼️ <strong>Startscreen Feintuning:</strong> Neue Hintergrund-Bühne, Buttons nach unten geschoben und kompakter für mehr sichtbaren Background auf Mobile & Desktop.</li>
+                        <ul>
+                            <li>🖼️ Startscreen Feintuning: neue Bühne, Buttons nach unten und kompakter für mehr sichtbaren Background.</li>
+                            <li>🧾 Patch-Notizen mit Datum: Chronologisch scrollen und ältere Updates nachlesen.</li>
+                            <li>🧩 Sprites auf 64×64 vereinheitlicht: klarere Kollisionen & knackigere Pixelkanten.</li>
                         </ul>
                     </div>
 
                     <div class="patch-entry">
                         <div class="patch-date">02.12.2025</div>
-                        <ul class="patch-list">
-                            <li>🤖 <strong>Neue Gegner-KI:</strong> Isaac-Style Physics! Kein Teleport mehr, sondern echter Rückstoß.</li>
-                            <li>👾 <strong>Gegner-Typen:</strong> Glibber (rutscht), Bull (stürmt), Spucker (schießt) & co.</li>
-                            <li>✨ <strong>Smooth Transitions:</strong> Butterweiche Übergänge zwischen Screens.</li>
-                            <li>📱 <strong>Intro & Loading:</strong> Neuer Start-Ablauf.</li>
-                            <li>ℹ️ <strong>Stage Info:</strong> Klicke auf das "i" bei der Stage-Wahl für Drop-Chancen.</li>
+                        <ul>
+                            <li>🤖 Neue Gegner-KI: Isaac-Style Physics! Kein Teleport mehr, sondern echter Rückstoß.</li>
+                            <li>👾 Gegner-Typen: Glibber (rutscht), Bull (stürmt), Spucker (schießt) & Co.</li>
+                            <li>✨ Smooth Transitions: Butterweiche Übergänge zwischen Screens.</li>
+                            <li>📱 Intro & Loading: Neuer Start-Ablauf.</li>
+                            <li>ℹ️ Stage Info: Klicke auf das "i" bei der Stage-Wahl für Drop-Chancen.</li>
                         </ul>
                     </div>
-
-                    <button class="menu-btn primary close-modal" data-target="patch-notes-modal">Alles klar!</button>
                 </div>
             </div>
         </div>
