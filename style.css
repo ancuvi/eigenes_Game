@@ -116,7 +116,9 @@ canvas {
     flex-direction: column;
     justify-content: flex-end;
     align-items: center;
-    overflow-y: auto;
+    min-height: 100vh;
+    padding: 16px 12px 32px;
+    overflow: hidden;
     z-index: 100;
     background-image: url('assets/start_screen/start_screen_bg.png');
     background-size: cover;
@@ -175,7 +177,7 @@ canvas {
     flex-direction: column;
     gap: 20px;
     align-items: center;
-    width: clamp(260px, 80vw, 600px);
+    width: clamp(240px, 88vw, 600px);
     margin-bottom: 60px;
 }
 
@@ -183,6 +185,30 @@ canvas {
     .menu-grid,
     .menu-container {
         margin-bottom: 36px;
+    }
+}
+
+@media (max-width: 820px) and (max-height: 520px) {
+    #start-screen {
+        padding-bottom: 20px;
+    }
+
+    .menu-grid,
+    .menu-container {
+        gap: 14px;
+        margin-bottom: 24px;
+        width: clamp(240px, 94vw, 520px);
+    }
+
+    .menu-btn {
+        padding: 12px;
+        font-size: 0.95rem;
+        letter-spacing: 0.06em;
+        border-width: 1.5px;
+    }
+
+    .tagline {
+        font-size: 0.95rem;
     }
 }
 
