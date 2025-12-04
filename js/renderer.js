@@ -2,6 +2,33 @@
 import { TILE, TILE_WORLD, WALL_LIKE_TILES, DEBUG_HITBOX, PLAYER_HEAD_OFFSET, PROJECTILE_RADIUS } from './constants.js';
 import { getWallNeighborMask } from './utils.js';
 
+const SHOW_GRID = false; // Debug-Grid ausblenden
+
+// Statisches Boden-Layout (13 x 7) für alle Räume; entspricht Innenfläche ohne äußere Wände
+const ROOM_FLOOR_COLS = 13;
+const ROOM_FLOOR_ROWS = 7;
+const ROOM_FLOOR_MAP = [
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+    14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
+    27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+    40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52,
+    53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65,
+    66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78,
+    79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91
+];
+
+// Vorladen der Boden-Sprites (boden_01.gif ... boden_91.gif)
+function loadFloorSprites() {
+    const sprites = new Array(92); // Index 1..91
+    for (let i = 1; i <= 91; i++) {
+        const img = new Image();
+        const padded = i.toString().padStart(2, '0');
+        img.src = `assets/floor/boden_${padded}.gif`;
+        sprites[i] = img;
+    }
+    return sprites;
+}
+
 export class Renderer {
     constructor(canvas, player, map, inputHandler, camera) {
         this.canvas = canvas;
@@ -18,6 +45,8 @@ export class Renderer {
         this.worldScale = 1;
         this.offsetX = 0;
         this.offsetY = 0;
+
+        this.floorSprites = loadFloorSprites();
     }
 
     updateScale(scale, ox, oy) {
@@ -53,8 +82,13 @@ export class Renderer {
         ctx.fillStyle = '#2a2a2a'; 
         ctx.fillRect(bgX, bgY, bgW, bgH);
 
+        // 2b. Boden mit statischem Layout zeichnen (Innenfläche: 13x7 Tiles)
+        this.drawFloor(camX, camY);
+
         // Draw World Elements
-        this.drawGrid(roomW, roomH, camX, camY);
+        if (SHOW_GRID) {
+            this.drawGrid(roomW, roomH, camX, camY);
+        }
         this.drawWallsAndDoors(camX, camY);
         this.drawObstacles(camX, camY);
         this.drawItems(camX, camY);
@@ -70,6 +104,35 @@ export class Renderer {
 
         // 4. Player
         this.drawEntity(this.player, '#43a047', camX, camY); 
+    }
+
+    drawFloor(camX, camY) {
+        if (!this.map.currentRoom) return;
+        const ctx = this.ctx;
+
+        // Innenbereich (ohne Außenwände): Start bei 1 Tile Offset von links/oben
+        const startCol = 1;
+        const startRow = 1;
+
+        for (let r = 0; r < ROOM_FLOOR_ROWS; r++) {
+            for (let c = 0; c < ROOM_FLOOR_COLS; c++) {
+                const idx = r * ROOM_FLOOR_COLS + c;
+                const tileId = ROOM_FLOOR_MAP[idx];
+                const img = this.floorSprites[tileId];
+                const worldX = (c + startCol) * TILE_WORLD;
+                const worldY = (r + startRow) * TILE_WORLD;
+                const sx = worldX - camX;
+                const sy = worldY - camY;
+
+                if (img && img.complete) {
+                    ctx.drawImage(img, sx, sy, TILE_WORLD, TILE_WORLD);
+                } else {
+                    // Fallback: flacher Farbton, falls nicht geladen
+                    ctx.fillStyle = '#1c1c1c';
+                    ctx.fillRect(sx, sy, TILE_WORLD, TILE_WORLD);
+                }
+            }
+        }
     }
 
     drawUI() {
