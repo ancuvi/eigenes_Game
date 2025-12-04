@@ -8,6 +8,28 @@ import {
 } from './constants.js';
 import { CONSTANTS, BalanceManager } from './balanceManager.js';
 
+// Shared sprite cache per enemy type
+const ENEMY_SPRITES = {
+    Glibber: 'assets/enemies/mobs/slime.png',
+    Spucker: 'assets/enemies/mobs/shadow.png',
+    Bull: 'assets/enemies/mobs/gameboy.png',
+    Surrer: 'assets/enemies/mobs/screen.png',
+    Skelett: 'assets/enemies/mobs/fledermaus.png',
+    NestBlock: 'assets/enemies/miniboss/bugbehemoth.png',
+    Ironhead: 'assets/enemies/boss/skelletonking.png'
+};
+
+const spriteCache = {};
+function getEnemySprite(type) {
+    if (!ENEMY_SPRITES[type]) return null;
+    if (!spriteCache[type]) {
+        const img = new Image();
+        img.src = ENEMY_SPRITES[type];
+        spriteCache[type] = img;
+    }
+    return spriteCache[type];
+}
+
 // Base Enemy Class
 export class Enemy {
     constructor(stats, x, y, rank = 'normal') {
@@ -51,6 +73,9 @@ export class Enemy {
         this.attackCooldown = 0;
         this.attackRange = 160;
         this.telegraphTimer = 0;
+
+        // Optional sprite image (set per type)
+        this.sprite = null;
     }
 
     update(dt, player, map) {
@@ -677,13 +702,41 @@ export function createEnemy(type, x, y, stage, floor, rank = 'normal') {
 
     // 3. Instantiate specific class
     switch (type) {
-        case 'Glibber': return new Glibber(stats, x, y, rank);
-        case 'Spucker': return new Spucker(stats, x, y, rank);
-        case 'Bull':    return new Bull(stats, x, y, rank);
-        case 'Surrer':  return new Surrer(stats, x, y, rank);
-        case 'Skelett': return new Skelett(stats, x, y, rank);
-        case 'NestBlock': return new NestBlock(stats, x, y, rank);
-        case 'Ironhead': return new Ironhead(stats, x, y, rank);
+        case 'Glibber': {
+            const e = new Glibber(stats, x, y, rank);
+            e.sprite = getEnemySprite('Glibber');
+            return e;
+        }
+        case 'Spucker': {
+            const e = new Spucker(stats, x, y, rank);
+            e.sprite = getEnemySprite('Spucker');
+            return e;
+        }
+        case 'Bull': {
+            const e = new Bull(stats, x, y, rank);
+            e.sprite = getEnemySprite('Bull');
+            return e;
+        }
+        case 'Surrer': {
+            const e = new Surrer(stats, x, y, rank);
+            e.sprite = getEnemySprite('Surrer');
+            return e;
+        }
+        case 'Skelett': {
+            const e = new Skelett(stats, x, y, rank);
+            e.sprite = getEnemySprite('Skelett');
+            return e;
+        }
+        case 'NestBlock': {
+            const e = new NestBlock(stats, x, y, rank);
+            e.sprite = getEnemySprite('NestBlock');
+            return e;
+        }
+        case 'Ironhead': {
+            const e = new Ironhead(stats, x, y, rank);
+            e.sprite = getEnemySprite('Ironhead');
+            return e;
+        }
         default: return new Enemy(stats, x, y, rank); // Fallback
     }
 }

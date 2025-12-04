@@ -506,20 +506,24 @@ export class Renderer {
                 ctx.drawImage(headImg, sx, sy + headOffset, sw, sh);
             }
         } else {
-            // Default Rendering (Enemies)
-            ctx.fillStyle = color;
-            ctx.fillRect(sx, sy, sw, sh);
-            
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 8;
-            ctx.strokeRect(sx, sy, sw, sh);
-            
-            ctx.fillStyle = '#000';
-            // Eyes proportional to size
-            const eyeSize = sw * 0.15;
-            const eyeY = sy + sh * 0.3;
-            ctx.fillRect(sx + sw * 0.25, eyeY, eyeSize, eyeSize); 
-            ctx.fillRect(sx + sw * 0.75 - eyeSize, eyeY, eyeSize, eyeSize); 
+            // Enemy rendering with sprite fallback
+            if (entity.sprite && entity.sprite.complete) {
+                ctx.drawImage(entity.sprite, sx, sy, sw, sh);
+            } else {
+                // Default box if sprite missing
+                ctx.fillStyle = color;
+                ctx.fillRect(sx, sy, sw, sh);
+                
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 8;
+                ctx.strokeRect(sx, sy, sw, sh);
+                
+                ctx.fillStyle = '#000';
+                const eyeSize = sw * 0.15;
+                const eyeY = sy + sh * 0.3;
+                ctx.fillRect(sx + sw * 0.25, eyeY, eyeSize, eyeSize); 
+                ctx.fillRect(sx + sw * 0.75 - eyeSize, eyeY, eyeSize, eyeSize); 
+            }
         }
         
         // Debug Hitbox
