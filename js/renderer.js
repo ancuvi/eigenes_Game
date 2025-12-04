@@ -4,26 +4,22 @@ import { getWallNeighborMask } from './utils.js';
 
 const SHOW_GRID = false; // Debug-Grid ausblenden
 
-// Statisches Boden-Layout (13 x 7) für alle Räume; entspricht Innenfläche ohne äußere Wände
-const ROOM_FLOOR_COLS = 13;
-const ROOM_FLOOR_ROWS = 7;
-const ROOM_FLOOR_MAP = [
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
-    14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
-    27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-    40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52,
-    53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65,
-    66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78,
-    79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91
-];
+// Statisches Boden-Layout (15 x 9) für alle Räume; füllt den gesamten Raum
+const ROOM_FLOOR_COLS = 15;
+const ROOM_FLOOR_ROWS = 9;
+const ROOM_FLOOR_MAP = Array.from(
+    { length: ROOM_FLOOR_COLS * ROOM_FLOOR_ROWS },
+    (_, i) => i + 1 // 1..135
+);
 
-// Vorladen der Boden-Sprites (boden_01.gif ... boden_91.gif)
+// Vorladen der Boden-Sprites (floor_walls_01..135)
 function loadFloorSprites() {
-    const sprites = new Array(92); // Index 1..91
-    for (let i = 1; i <= 91; i++) {
+    const total = ROOM_FLOOR_COLS * ROOM_FLOOR_ROWS; // 135
+    const sprites = new Array(total + 1); // Index 1..135
+    for (let i = 1; i <= total; i++) {
         const img = new Image();
         const padded = i.toString().padStart(2, '0');
-        img.src = `assets/floor/boden_${padded}.gif`;
+        img.src = `assets/floor_walls/images/floor_wall_${padded}.png`;
         sprites[i] = img;
     }
     return sprites;
@@ -92,7 +88,7 @@ export class Renderer {
         ctx.fillStyle = '#2a2a2a'; 
         ctx.fillRect(bgX, bgY, bgW, bgH);
 
-        // 2b. Boden mit statischem Layout zeichnen (Innenfläche: 13x7 Tiles)
+        // 2b. Boden/Wände (gesamtes 15x9 Grid mit neuen Assets)
         this.drawFloor(camX, camY);
 
         // Draw World Elements
@@ -120,9 +116,8 @@ export class Renderer {
         if (!this.map.currentRoom) return;
         const ctx = this.ctx;
 
-        // Innenbereich (ohne Außenwände): Start bei 1 Tile Offset von links/oben
-        const startCol = 1;
-        const startRow = 1;
+        const startCol = 0;
+        const startRow = 0;
 
         for (let r = 0; r < ROOM_FLOOR_ROWS; r++) {
             for (let c = 0; c < ROOM_FLOOR_COLS; c++) {
@@ -410,45 +405,10 @@ export class Renderer {
                 const sTile = TILE_WORLD;
                 
                 if (tile === TILE.WALL || tile === TILE.VOID) {
-                    // Autotile: einfache Kanten-Hervorhebung basierend auf Nachbarn
-                    const mask = getWallNeighborMask(tiles, r, c, WALL_LIKE_TILES);
-                    const isVoid = tile === TILE.VOID;
-                    ctx.fillStyle = isVoid ? '#050505' : '#2e7d32';
-                    ctx.fillRect(sx, sy, sTile, sTile);
-
-                    // Außenkanten hervorheben, wenn kein Nachbar anliegt
-                    ctx.lineWidth = 4;
-                    ctx.strokeStyle = isVoid ? '#0a0a0a' : '#1b5e20';
-                    if (!mask.up) {
-                        ctx.beginPath();
-                        ctx.moveTo(sx, sy);
-                        ctx.lineTo(sx + sTile, sy);
-                        ctx.stroke();
+                    if (tile === TILE.VOID) {
+                        ctx.fillStyle = '#050505';
+                        ctx.fillRect(sx, sy, sTile, sTile);
                     }
-                    if (!mask.down) {
-                        ctx.beginPath();
-                        ctx.moveTo(sx, sy + sTile);
-                        ctx.lineTo(sx + sTile, sy + sTile);
-                        ctx.stroke();
-                    }
-                    if (!mask.left) {
-                        ctx.beginPath();
-                        ctx.moveTo(sx, sy);
-                        ctx.lineTo(sx, sy + sTile);
-                        ctx.stroke();
-                    }
-                    if (!mask.right) {
-                        ctx.beginPath();
-                        ctx.moveTo(sx + sTile, sy);
-                        ctx.lineTo(sx + sTile, sy + sTile);
-                        ctx.stroke();
-                    }
-                    // Inner-Corner Schattierung als kleiner Hauch Autowall
-                    ctx.fillStyle = isVoid ? 'rgba(20,20,20,0.2)' : 'rgba(255,255,255,0.08)';
-                    if (!mask.up && !mask.left) ctx.fillRect(sx, sy, sTile * 0.25, sTile * 0.25);
-                    if (!mask.up && !mask.right) ctx.fillRect(sx + sTile * 0.75, sy, sTile * 0.25, sTile * 0.25);
-                    if (!mask.down && !mask.left) ctx.fillRect(sx, sy + sTile * 0.75, sTile * 0.25, sTile * 0.25);
-                    if (!mask.down && !mask.right) ctx.fillRect(sx + sTile * 0.75, sy + sTile * 0.75, sTile * 0.25, sTile * 0.25);
                 } else if (tile === TILE.OBSTACLE) {
                     // Deterministischer Pick basierend auf Position
                     const hash = (r * 73856093) ^ (c * 19349663);
