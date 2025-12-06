@@ -142,7 +142,6 @@
                 <button id="map-toggle">Map</button>
                 <button id="stats-toggle">Stats</button>
                 <button id="bag-btn">Bag</button>
-                <button id="auto-btn">Auto: OFF</button>
             </div>
 
             <div id="stats-panel">
@@ -154,6 +153,44 @@
 
         <!-- Spielbereich (Canvas) - Füllt den Rest -->
         <div id="game-area">
+            <div id="hud">
+                <div id="hud-left">
+                    <div class="hud-left-row">
+                        <div class="hud-card">
+                            <div class="hud-bar hp">
+                                <div class="bar-top">
+                                    <span class="bar-label">HP</span>
+                                    <span id="hud-hp-text" class="bar-value">100/100</span>
+                                </div>
+                                <div class="bar-track">
+                                    <div id="hud-hp-fill" class="bar-fill hp"></div>
+                                </div>
+                            </div>
+                            <div class="hud-bar exp">
+                                <div class="bar-top">
+                                    <span class="bar-label">EXP</span>
+                                    <span id="hud-exp-text" class="bar-value">0/100</span>
+                                </div>
+                                <div class="bar-track">
+                                    <div id="hud-exp-fill" class="bar-fill exp"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="auto-btn" class="hud-auto">Auto: OFF</button>
+                    </div>
+                </div>
+
+                <div id="hud-right">
+                    <div class="hud-pill">
+                        <span class="pill-label">Gold</span>
+                        <span id="hud-gold" class="pill-value">0</span>
+                    </div>
+                    <div class="hud-pill ghost">
+                        <span class="pill-label">Items</span>
+                        <span id="hud-items" class="pill-value">0</span>
+                    </div>
+                </div>
+            </div>
             <canvas id="gameCanvas"></canvas>
         </div>
 

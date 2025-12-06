@@ -30,6 +30,13 @@ function getEnemySprite(type) {
     return spriteCache[type];
 }
 
+// Preload all enemy sprites up-front to avoid first-frame placeholders
+export function preloadEnemySprites() {
+    Object.keys(ENEMY_SPRITES).forEach(type => {
+        getEnemySprite(type);
+    });
+}
+
 // Base Enemy Class
 export class Enemy {
     constructor(stats, x, y, rank = 'normal') {
@@ -550,6 +557,7 @@ export class NestBlock extends Enemy {
         // Spawn Surrer
         const stats = { hp: CONSTANTS.BASE_ENEMY_HP * 0.4, damage: CONSTANTS.BASE_ENEMY_DMG }; // Weak stats
         const child = new Surrer(stats, this.x, this.y, 'normal');
+        child.sprite = getEnemySprite('Surrer');
         map.currentRoom.enemies.push(child);
         this.children.push(child);
     }

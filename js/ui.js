@@ -28,7 +28,13 @@ const els = {
         down: document.getElementById('btn-down'),
         left: document.getElementById('btn-left'),
         right: document.getElementById('btn-right')
-    }
+    },
+    hudHpFill: document.getElementById('hud-hp-fill'),
+    hudHpText: document.getElementById('hud-hp-text'),
+    hudExpFill: document.getElementById('hud-exp-fill'),
+    hudExpText: document.getElementById('hud-exp-text'),
+    hudGold: document.getElementById('hud-gold'),
+    hudItems: document.getElementById('hud-items')
 };
 
 // Initialize Log Toggle
@@ -60,6 +66,35 @@ export function updatePlayerStats(player) {
     const hpPercent = (player.hp / player.maxHp) * 100;
     if (els.playerHpBar) {
         els.playerHpBar.style.width = `${Math.max(0, hpPercent)}%`;
+    }
+
+    // HUD: HP + EXP bars (top-left)
+    if (els.hudHpText) {
+        els.hudHpText.textContent = `${formatNumber(Math.ceil(player.hp))}/${formatNumber(player.maxHp)}`;
+    }
+    if (els.hudHpFill) {
+        els.hudHpFill.style.width = `${Math.max(0, Math.min(100, hpPercent))}%`;
+    }
+
+    const expMax = player.getNextLevelExp ? player.getNextLevelExp(player.level) : 0;
+    const expPercent = expMax > 0 ? (player.exp / expMax) * 100 : 0;
+    if (els.hudExpText) {
+        els.hudExpText.textContent = `${formatNumber(player.exp)}/${formatNumber(expMax)}`;
+    }
+    if (els.hudExpFill) {
+        els.hudExpFill.style.width = `${Math.max(0, Math.min(100, expPercent))}%`;
+    }
+
+    if (els.hudGold) {
+        els.hudGold.textContent = formatNumber(player.gold);
+    }
+    if (els.hudItems) {
+        const runLoot = player.runLoot || {};
+        const items = Object.values(runLoot).reduce((total, rarities) => {
+            const rarityCount = Object.values(rarities || {}).reduce((a, b) => a + b, 0);
+            return total + rarityCount;
+        }, 0);
+        els.hudItems.textContent = formatNumber(items);
     }
 
     // Mini Stats Update

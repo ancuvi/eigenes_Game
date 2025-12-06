@@ -14,11 +14,15 @@ import { ITEM_DEFINITIONS, RARITY_LEVELS } from './items/itemData.js';
 import { Item } from './item.js';
 import { RENDER_SCALE, TILE_SIZE, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, ROOM_WORLD_W, ROOM_WORLD_H } from './constants.js';
 import { AutoPilot } from './autopilot.js';
+import { preloadEnemySprites } from './enemy.js';
 
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         if (!this.canvas) console.error("Canvas element not found!");
+
+        // Preload enemy sprites early to avoid placeholder squares on first spawn
+        preloadEnemySprites();
 
         this.player = new Player();
         this.map = new GameMap(this.player, this.canvas); 
@@ -136,6 +140,11 @@ class Game {
         const worldScale = Math.min(cssW / ROOM_WORLD_W, cssH / ROOM_WORLD_H) * 0.95; 
         const offsetX = (cssW - ROOM_WORLD_W * worldScale) / 2;
         const offsetY = (cssH - ROOM_WORLD_H * worldScale) / 2;
+
+        // Expose offsets to CSS so HUD can hug the game area walls instead of the window edges
+        const rootStyle = document.documentElement.style;
+        rootStyle.setProperty('--hud-offset-x', `${Math.max(0, Math.floor(offsetX))}px`);
+        rootStyle.setProperty('--hud-offset-y', `${Math.max(0, Math.floor(offsetY))}px`);
 
         if (this.renderer) {
             this.renderer.updateScale(worldScale, offsetX, offsetY);
