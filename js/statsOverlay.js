@@ -39,7 +39,6 @@ export class StatsOverlay {
         const pct = (v) => `${Math.round(v * 100)}%`;
         const pctRaw = (v) => `${v}%`;
 
-        setText('stat-level-overlay', p.level);
         setText('stat-hp-overlay', formatNumber(Math.ceil(p.hp)));
         setText('stat-maxhp-overlay', formatNumber(p.maxHp));
         setText('stat-regen-overlay', `${p.hpRegen}/s`);

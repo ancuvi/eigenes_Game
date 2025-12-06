@@ -154,7 +154,6 @@ export class Renderer {
         if (enemies) {
             enemies.forEach(enemy => {
                 this.drawHealthBar(enemy, camX, camY, ctx);
-                this.drawLabel(enemy, `${enemy.name} (Lvl ${enemy.level})`, camX, camY, ctx);
                 if (enemy.telegraphTimer > 0) {
                     this.drawTelegraph(enemy, camX, camY, ctx);
                 }

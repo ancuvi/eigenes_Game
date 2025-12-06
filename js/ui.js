@@ -8,10 +8,8 @@ const els = {
     playerHp: document.getElementById('stat-hp'),
     playerMaxHp: document.getElementById('stat-max-hp'),
     playerGold: document.getElementById('stat-gold'),
-    playerLevel: document.getElementById('stat-level'),
     playerHpBar: document.getElementById('player-hp-bar'),
     enemyHpBar: document.getElementById('enemy-hp-bar'),
-    enemyName: document.getElementById('enemy-name'),
     msAtk: document.getElementById('ms-atk'),
     msHp: document.getElementById('ms-hp'),
     msDef: document.getElementById('ms-def'),
@@ -61,7 +59,6 @@ export function updatePlayerStats(player) {
     if (els.playerHp) els.playerHp.textContent = formatNumber(Math.ceil(player.hp));
     if (els.playerMaxHp) els.playerMaxHp.textContent = formatNumber(player.maxHp);
     if (els.playerGold) els.playerGold.textContent = formatNumber(player.gold);
-    if (els.playerLevel) els.playerLevel.textContent = player.level;
     
     const hpPercent = (player.hp / player.maxHp) * 100;
     if (els.playerHpBar) {
@@ -110,10 +107,6 @@ export function updatePlayerStats(player) {
  */
 export function updateEnemyStats(enemy) {
     if (!enemy) return;
-    
-    if (els.enemyName) {
-        els.enemyName.textContent = `${enemy.name} (Lvl ${enemy.level})`;
-    }
     
     const hpPercent = (enemy.hp / enemy.maxHp) * 100;
     if (els.enemyHpBar) {
