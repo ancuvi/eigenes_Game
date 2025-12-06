@@ -309,6 +309,8 @@ export class GameMap {
         this.currentGridY = gy;
         this.currentRoom = this.grid[key];
         this.currentRoom.visited = true;
+        // Delay enemy appearance for entry animation placeholder
+        this.currentRoom.spawnHoldTimer = 1.0;
 
         if (this.onRoomChange) {
             this.onRoomChange(this.currentGridX, this.currentGridY, this.currentRoom);
@@ -505,36 +507,43 @@ export class GameMap {
         }
 
         // Enemies Update & Collision
-        this.currentRoom.enemies.forEach(enemy => {
-            enemy.update(dt, this.player, this);
-            if (!enemy.ignoresWalls) {
-                this.checkEntityCollision(enemy); 
-            }
-        });
+        if (this.currentRoom.spawnHoldTimer > 0) {
+            this.currentRoom.spawnHoldTimer -= dt;
+            if (this.currentRoom.spawnHoldTimer < 0) this.currentRoom.spawnHoldTimer = 0;
+        } else {
+            this.currentRoom.enemies.forEach(enemy => {
+                enemy.update(dt, this.player, this);
+                if (!enemy.ignoresWalls) {
+                    this.checkEntityCollision(enemy); 
+                }
+            });
+        }
 
         // Enemy Separation
         const enemies = this.currentRoom.enemies;
-        for (let i = 0; i < enemies.length; i++) {
-            for (let j = i + 1; j < enemies.length; j++) {
-                const e1 = enemies[i];
-                const e2 = enemies[j];
-                const c1x = e1.x + e1.width/2;
-                const c1y = e1.y + e1.height/2;
-                const c2x = e2.x + e2.width/2;
-                const c2y = e2.y + e2.height/2;
-                
-                const dist = getDistance(c1x, c1y, c2x, c2y);
-                const minDist = (e1.width + e2.width) / 2 * 0.9;
-                
-                if (dist < minDist && dist > 0.1) {
-                    const push = 80 * dt; // Separation strength (scaled by 4)
-                    const dx = (c1x - c2x) / dist;
-                    const dy = (c1y - c2y) / dist;
+        if (this.currentRoom.spawnHoldTimer === 0) {
+            for (let i = 0; i < enemies.length; i++) {
+                for (let j = i + 1; j < enemies.length; j++) {
+                    const e1 = enemies[i];
+                    const e2 = enemies[j];
+                    const c1x = e1.x + e1.width/2;
+                    const c1y = e1.y + e1.height/2;
+                    const c2x = e2.x + e2.width/2;
+                    const c2y = e2.y + e2.height/2;
                     
-                    e1.x += dx * push;
-                    e1.y += dy * push;
-                    e2.x -= dx * push;
-                    e2.y -= dy * push;
+                    const dist = getDistance(c1x, c1y, c2x, c2y);
+                    const minDist = (e1.width + e2.width) / 2 * 0.9;
+                    
+                    if (dist < minDist && dist > 0.1) {
+                        const push = 80 * dt; // Separation strength (scaled by 4)
+                        const dx = (c1x - c2x) / dist;
+                        const dy = (c1y - c2y) / dist;
+                        
+                        e1.x += dx * push;
+                        e1.y += dy * push;
+                        e2.x -= dx * push;
+                        e2.y -= dy * push;
+                    }
                 }
             }
         }
@@ -852,7 +861,9 @@ export class GameMap {
     }
 
     getEnemies() {
-        return this.currentRoom ? this.currentRoom.enemies : [];
+        if (!this.currentRoom) return [];
+        if (this.currentRoom.spawnHoldTimer && this.currentRoom.spawnHoldTimer > 0) return [];
+        return this.currentRoom.enemies;
     }
     
     getObstacles() {
