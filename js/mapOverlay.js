@@ -66,12 +66,13 @@ export class MapOverlay {
 
         const spanX = maxX - minX + 1;
         const spanY = maxY - minY + 1;
-        const padding = 20;
+        // Reduce padding further so cells can use more space in the small minimap
+        const padding = 4;
         // Zelle quadratisch halten
         const cellSize = Math.min(
             (this.canvas.width - padding * 2) / spanX,
             (this.canvas.height - padding * 2) / spanY,
-            40 // Max Cell Size etwas kleiner, da Dungeon größer sein kann
+            80 // Allow larger tiles so explored/current rooms are easier to read
         );
         
         // Zentrieren
