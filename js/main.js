@@ -182,6 +182,10 @@ class Game {
 
         this.mapOverlay = new MapOverlay(this.map);
         this.statsOverlay = new StatsOverlay(this.player);
+        // Keep minimap in sync when rooms change
+        this.map.onRoomChange = () => {
+            if (this.mapOverlay) this.mapOverlay.draw();
+        };
 
         UI.initUpgradeUI(this.player);
 

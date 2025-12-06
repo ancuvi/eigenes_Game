@@ -94,6 +94,7 @@ export class GameMap {
         this.floor = 1;
         this.roomDistributor = new RoomDistributionManager();
         this.onStageComplete = null; // callback vom Game
+        this.onRoomChange = null; // callback when player enters a room
     }
     
     setStage(stage, floor) {
@@ -308,6 +309,10 @@ export class GameMap {
         this.currentGridY = gy;
         this.currentRoom = this.grid[key];
         this.currentRoom.visited = true;
+
+        if (this.onRoomChange) {
+            this.onRoomChange(this.currentGridX, this.currentGridY, this.currentRoom);
+        }
     }
 
     pickEnemyCount() {

@@ -1136,14 +1136,14 @@ canvas {
 /* Map Overlay */
 #map-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.65);
+    bottom: calc(var(--hud-offset-y) + 8px);
+    right: calc(var(--hud-offset-x) + 8px);
+    width: 220px;
+    height: 220px;
     display: none;
-    align-items: center;
-    justify-content: center;
+    align-items: flex-end;
+    justify-content: flex-end;
+    pointer-events: none;
     z-index: 30;
 }
 
@@ -1152,33 +1152,17 @@ canvas {
 }
 
 #map-dialog {
-    background: #111;
+    pointer-events: auto;
+    background: rgba(0,0,0,0.7);
     border: 1px solid #444;
     border-radius: 10px;
-    padding: 12px;
-    width: 460px;
+    padding: 8px;
+    width: 100%;
     box-shadow: 0 10px 30px rgba(0,0,0,0.6);
 }
 
 #map-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-    font-weight: bold;
-}
-
-#map-close {
-    background: #333;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    padding: 4px 8px;
-    cursor: pointer;
-}
-
-#map-close:hover {
-    background: #444;
+    display: none;
 }
 
 #map-canvas {
@@ -1188,26 +1172,6 @@ canvas {
     border: 1px solid #333;
     border-radius: 6px;
 }
-
-#map-legend {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-top: 6px;
-    font-size: 12px;
-    color: #ccc;
-}
-
-.legend {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border-radius: 3px;
-    margin-right: 4px;
-}
-
-.legend.visited { background: #4a4a4a; }
-.legend.current { background: #43a047; }
 
 /* Stats Overlay */
 #stats-overlay {

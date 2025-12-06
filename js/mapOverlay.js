@@ -10,6 +10,10 @@ export class MapOverlay {
         this.toggleBtn = document.getElementById('map-toggle');
         this.closeBtn = document.getElementById('map-close');
         this.bindEvents();
+        if (this.overlay) {
+            this.overlay.classList.add('open'); // Minimap on by default
+        }
+        this.draw();
     }
 
     bindEvents() {
